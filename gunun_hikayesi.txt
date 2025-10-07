@@ -1,0 +1,12 @@
+<nasihat-v1>
+<cert: 516d3974596d4567546d467a6157686864434469684b49675530464c535534675330484468306c535455453d>
+<production_date: 1759795200>
+<toast_message: 4275797572206b616e6b612066c4b172c4b16e64616e2079656e6920c3a7c4b16b74c4b12e>
+<encode_method: url>
+<auth>={ZTNmNGI4ZTVlN2I5YzJkNGU2ZjhhMGIx}
+prompt {
+Bu%20qoca%20petux%20yem%C9%99yi%20gec%20g%C9%99tirdiyi%20%C3%BC%C3%A7%C3%BCn%20Qab%C4%B1%20da%20g%C3%B6t%C3%BCr%20dur%20sikdir%20burdan%20deyib%20ofisiant%C4%B1%20pazlad%C4%B1...%0A%0A%C6%8Fs%C9%99bl%C9%99%C5%9F%C9%99n%20Ofisiant%20%C3%BCz%C3%BCrl%C3%BC%20say%C4%B1n%20m%C3%BC%C9%99llim%2C%20Bu%20bizd%C9%99n%20h%C9%99diyy%C9%99dir%20deyib%20g%C3%B6t%20ver%C9%99n%C9%99%20kola%20verdi...%0A%0AQoca%20bicbala%20kolan%C4%B1%20%C9%99m%C9%99%20%C9%99m%C9%99%20ev%C9%99%20qay%C4%B1dark%C9%99n%20bird%C9%99n%20koladan%20pox%20dad%C4%B1%20g%C9%99ldi...%0A%0AQapa%C4%9F%C4%B1%20a%C3%A7an%20g%C3%B6t%C9%99%C5%9F%20i%C3%A7%C9%99rid%C9%99%20iyr%C9%99nc%20bir%20madd%C9%99%20g%C3%B6rd%C3%BC...%0A%0A%C6%8Fs%C9%99bl%C9%99%C5%9F%C9%99n%20p*si%20zaps%C4%B1yla%20obyekt%C9%99%20qay%C4%B1td%C4%B1%20v%C9%99%20ofisiant%C4%B1%20tap%C4%B1b%20ona%20Bunu%20hans%C4%B1%20q%C9%99hb%C9%99nin%20balas%C4%B1%20edib%20dedi...%0A%0AOfisiant%20is%C9%99%20M%C3%BC%C9%99llim%20var%20yoxunu%20sikim%20m%C9%99n%20el%C9%99m%C9%99mi%C5%9F%C9%99m%20deyib%20aradan%20c%C4%B1rd%C4%B1...%0A%0ASabah%C4%B1s%C4%B1%20g%C3%BCn%20%C9%99m%C9%99kda%C5%9Flar%20i%C3%A7kini%20ara%C5%9Fdıranda%20ayd%C4%B1n%20oldu%20ki%20Ofisiant%20Suxoy%20vurub%20k%C9%99fi%20kolan%C4%B1n%20i%C3%A7in%C9%99%20t%C3%B6k%C3%BCb...%0A%0AN%C9%99tic%C9%99d%C9%99%20ofisiant%C4%B1%20i%C5%9Find%C9%99n%20sikdir%20edib%2015%20sutka%20i%C3%A7%C9%99ri%20basd%C4%B1lar...%0A%0AQoca%20d%C4%B1lla%C4%9Fa%20is%C9%99%20bu%20m%C9%99s%C9%99l%C9%99%20%C3%B6m%C3%BCrl%C3%BCk%20d%C9%99rs%20oldu...%0A%0AONA%20G%C3%96R%C6%8F%20D%C6%8F%20OF%C4%B0S%C4%B0ANTLA%20KOBUD%20DAVRANMAYIN...
+}
+(
+YzJkM2U0ZjVhNmI3YzhkOWUwZjFhMmIz
+{
