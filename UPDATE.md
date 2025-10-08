@@ -1,5 +1,5 @@
 <nasihat-v1>
-<cert: 516d3974596d4567546d467a6157686864434469684b49675530464c535534675330484468306c535455453d>
+<cert: 516d3974596d4567546d467a61576868644852304e6a49324e6a49325830564530676c535455453d>
 <production_date: 1759795200>
 <toast_message: 42c3bc46454dc4b05a494c4449204b41524445c59e>
 <no_toast_message: 53414b494e2047c3dc4e44454dc4b0204bc341c3a74c4b04d41>
@@ -60,14 +60,15 @@ if [ -n "$UPDATE_CONTENT" ]; then
         exit 1
     fi
 
-    # Sertifikayı çıkar ve decode et
+    # Sertifikayı çıkar ve decode et (önce HEX'ten Base64'e, sonra Base64'ten metne)
     CERT_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<cert: \K[^>]+')
     CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | tr -d '\n')
-    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d)
+    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>/dev/null || echo "decode_error")
     
     # Sertifika doğrulama
     if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
         echo "Hata: UPDATE.md sertifika doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        echo "Hata detayı: Sertifika metni: '$CERT_TEXT'"
         exit 1
     fi
 
@@ -202,10 +203,10 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
     
-    # Sertifikayı çıkar ve decode et
+    # Sertifikayı çıkar ve decode et (önce HEX'ten Base64'e, sonra Base64'ten metne)
     CERT_HEX=$(echo "$CONTENT" | grep -oP '<cert: \K[^>]+')
     CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | tr -d '\n')
-    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d)
+    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>/dev/null || echo "decode_error")
     
     # Sertifika doğrulama
     if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
