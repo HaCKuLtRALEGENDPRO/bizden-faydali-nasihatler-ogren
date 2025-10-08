@@ -1,5 +1,5 @@
 <nasihat-v1>
-<cert: 516d3974596d4567546d467a61576868644852304e6a49324e6a49325830564530676c535455453d>
+<cert: 516d3974596d4567546d467a6157686864574251556b4a5469426c5141554a556b31B>
 <production_date: 1759795200>
 <toast_message: 42c3bc46454dc4b05a494c4449204b41524445c59e>
 <no_toast_message: 53414b494e2047c3dc4e44454dc4b0204bc341c3a74c4b04d41>
@@ -12,8 +12,11 @@ runtime {
 UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
 STORY_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/gunun_hikayesi.txt"
 
-# Güncel tarih Unix tendency: 1759795200
+# Güncel tarih Unix timestamp
 CURRENT_TIMESTAMP=$(date +%s)
+
+# UTF-8 locale ayarını zorla
+export LC_ALL=C.UTF-8
 
 # UPDATE.md'yi kontrol et ve doğrula
 UPDATE_CONTENT=$(curl -s "$UPDATE_URL")
@@ -60,13 +63,16 @@ if [ -n "$UPDATE_CONTENT" ]; then
         exit 1
     fi
 
-    # Sertifikayı çıkar ve decode et (önce HEX'ten Base64'e, sonra Base64'ten metne)
-    CERT_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<cert: \K[^>]+')
+    # Sertifikayı çıkar ve decode et
+    CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n 's/.*<cert: \([^>]\+\).*/\1/p')
+    echo "Debug: CERT_HEX=$CERT_HEX"
     CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | tr -d '\n')
+    echo "Debug: CERT_BASE64=$CERT_BASE64"
     CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>/dev/null || echo "decode_error")
+    echo "Debug: CERT_TEXT=$CERT_TEXT"
     
     # Sertifika doğrulama
-    if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
+    if [ "$CERT_TEXT" != "Bomba Nasihat SAKIN KACIRMA" ]; then
         echo "Hata: UPDATE.md sertifika doğrulama başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: Sertifika metni: '$CERT_TEXT'"
         exit 1
@@ -85,11 +91,11 @@ if [ -n "$UPDATE_CONTENT" ]; then
     DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
     
     # Toast mesajını HEX'ten decode et
-    TOAST_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<toast_message: \K[^>]+')
+    TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n 's/.*<toast_message: \([^>]\+\).*/\1/p')
     TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
     
     # No toast mesajını HEX'ten decode et
-    NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<no_toast_message: \K[^>]+')
+    NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n 's/.*<no_toast_message: \([^>]\+\).*/\1/p')
     NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
     
     # Toast yerine echo eğer termux-toast yoksa
@@ -118,7 +124,7 @@ if [ -n "$UPDATE_CONTENT" ]; then
     UPDATE_CALCULATED_BASE64=$(echo -n "$UPDATE_HASH" | base64 | tr -d '\n')
     
     # Auth string’lerini çıkar
-    UPDATE_AUTH_START=$(echo "$UPDATE_CONTENT" | grep -oP '<auth>=\{\K[^}]+')
+    UPDATE_AUTH_START=$(echo "$UPDATE_CONTENT" | sed -n 's/.*<auth>=\{\([^}]\+\).*/\1/p')
     UPDATE_AUTH_END=$(echo "$UPDATE_CONTENT" | tail -n 2 | head -n 1)
     UPDATE_COMBINED_AUTH="$UPDATE_AUTH_START$UPDATE_AUTH_END"
     
@@ -157,7 +163,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     CALCULATED_BASE64=$(echo -n "$HASH" | base64 | tr -d '\n')
     
     # Auth string’lerini çıkar
-    AUTH_START=$(echo "$CONTENT" | grep -oP '<auth>=\{\K[^}]+')
+    AUTH_START=$(echo "$CONTENT" | sed -n 's/.*<auth>=\{\([^}]\+\).*/\1/p')
     AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1)
     COMBINED_AUTH="$AUTH_START$AUTH_END"
     
@@ -209,14 +215,18 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
     
-    # Sertifikayı çıkar ve decode et (önce HEX'ten Base64'e, sonra Base64'ten metne)
-    CERT_HEX=$(echo "$CONTENT" | grep -oP '<cert: \K[^>]+')
+    # Sertifikayı çıkar ve decode et
+    CERT_HEX=$(echo "$CONTENT" | sed -n 's/.*<cert: \([^>]\+\).*/\1/p')
+    echo "Debug: CERT_HEX=$CERT_HEX"
     CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | tr -d '\n')
+    echo "Debug: CERT_BASE64=$CERT_BASE64"
     CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>/dev/null || echo "decode_error")
+    echo "Debug: CERT_TEXT=$CERT_TEXT"
     
     # Sertifika doğrulama
-    if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
+    if [ "$CERT_TEXT" != "Bomba Nasihat SAKIN KACIRMA" ]; then
         echo "Hata: Sertifika doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        echo "Hata detayı: Sertifika metni: '$CERT_TEXT'"
         exit 1
     fi
     
@@ -233,11 +243,11 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
     
     # Toast mesajını HEX'ten decode et
-    TOAST_HEX=$(echo "$CONTENT" | grep -oP '<toast_message: \K[^>]+')
+    TOAST_HEX=$(echo "$CONTENT" | sed -n 's/.*<toast_message: \([^>]\+\).*/\1/p')
     TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
     
     # No toast mesajını HEX'ten decode et
-    NO_TOAST_HEX=$(echo "$CONTENT" | grep -oP '<no_toast_message: \K[^>]+')
+    NO_TOAST_HEX=$(echo "$CONTENT" | sed -n 's/.*<no_toast_message: \([^>]\+\).*/\1/p')
     NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
     
     # Toast yerine echo eğer termux-toast yoksa
@@ -257,7 +267,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     fi
     
     # Encode yöntemini çıkar
-    ENCODE_METHOD=$(echo "$CONTENT" | grep -oP '<encode_method: \K[^>]+')
+    ENCODE_METHOD=$(echo "$CONTENT" | sed -n 's/.*<encode_method: \([^>]\+\).*/\1/p')
     
     # Hikaye kısmını çıkar
     ENCODED_STORY=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
