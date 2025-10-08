@@ -12,7 +12,7 @@ runtime {
 UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
 STORY_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/gunun_hikayesi.txt"
 
-# Güncel tarih Unix timestamp
+# Güncel tarih Unix tendency: 1759795200
 CURRENT_TIMESTAMP=$(date +%s)
 
 # UPDATE.md'yi kontrol et ve doğrula
@@ -73,8 +73,14 @@ if [ -n "$UPDATE_CONTENT" ]; then
     fi
 
     # Üretim tarihini çıkar
-    PRODUCTION_TIMESTAMP=$(echo "$UPDATE_CONTENT" | grep -oP '<production_date: \K[^>]+')
+    PRODUCTION_TIMESTAMP=$(echo "$UPDATE_CONTENT" | sed -n 's/.*<production_date: \([0-9]\+\).*/\1/p')
     
+    # Üretim tarihi kontrolü
+    if [ -z "$PRODUCTION_TIMESTAMP" ]; then
+        echo "Hata: Üretim tarihi geçersiz veya eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+
     # Gün farkını hesapla
     DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
     
@@ -214,8 +220,14 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
     
-    # Üretim tarihini çıkar (Unix timestamp)
-    PRODUCTION_TIMESTAMP=$(echo "$CONTENT" | grep -oP '<production_date: \K[^>]+')
+    # Üretim tarihini çıkar
+    PRODUCTION_TIMESTAMP=$(echo "$CONTENT" | sed -n 's/.*<production_date: \([0-9]\+\).*/\1/p')
+    
+    # Üretim tarihi kontrolü
+    if [ -z "$PRODUCTION_TIMESTAMP" ]; then
+        echo "Hata: Üretim tarihi geçersiz veya eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
     
     # Gün farkını hesapla
     DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
