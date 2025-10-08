@@ -1,0 +1,274 @@
+<nasihat-v1>
+<cert: 516d3974596d4567546d467a6157686864434469684b49675530464c535534675330484468306c535455453d>
+<production_date: 1759795200>
+<toast_message: 42c3bc46454dc4b05a494c4449204b41524445c59e>
+<no_toast_message: 53414b494e2047c3dc4e44454dc4b0204bc341c3a74c4b04d41>
+<encode_method: none>
+<auth>={NjVhM2Y0YzM5NTM1MzY4NzZiYzE5NDQ3NDE5ODBiZTRiZGQ5MDEy}
+runtime {
+#!/bin/bash
+
+# Sunucudan dosyaları çekecek URL'ler
+UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
+STORY_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/gunun_hikayesi.txt"
+
+# Güncel tarih Unix timestamp
+CURRENT_TIMESTAMP=$(date +%s)
+
+# UPDATE.md'yi kontrol et ve doğrula
+UPDATE_CONTENT=$(curl -s "$UPDATE_URL")
+if [ -n "$UPDATE_CONTENT" ]; then
+    # Tanıtım string’lerini kontrol et
+    if ! echo "$UPDATE_CONTENT" | grep -q '^<nasihat-v1>'; then
+        echo "Hata: UPDATE.md tanıtım string'i eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '<cert:'; then
+        echo "Hata: UPDATE.md sertifika eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '<production_date:'; then
+        echo "Hata: UPDATE.md üretim tarihi eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '<toast_message:'; then
+        echo "Hata: UPDATE.md toast mesajı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '<no_toast_message:'; then
+        echo "Hata: UPDATE.md no toast mesajı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '<encode_method:'; then
+        echo "Hata: UPDATE.md encode yöntemi eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '^runtime {'; then
+        echo "Hata: UPDATE.md runtime başı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '^}$'; then
+        echo "Hata: UPDATE.md runtime sonu eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '^($'; then
+        echo "Hata: UPDATE.md auth sonu başı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$UPDATE_CONTENT" | grep -q '^{$'; then
+        echo "Hata: UPDATE.md auth sonu kapanışı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+
+    # Sertifikayı çıkar ve decode et
+    CERT_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<cert: \K[^>]+')
+    CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | tr -d '\n')
+    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d)
+    
+    # Sertifika doğrulama
+    if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
+        echo "Hata: UPDATE.md sertifika doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+
+    # Üretim tarihini çıkar
+    PRODUCTION_TIMESTAMP=$(echo "$UPDATE_CONTENT" | grep -oP '<production_date: \K[^>]+')
+    
+    # Gün farkını hesapla
+    DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
+    
+    # Toast mesajını HEX'ten decode et
+    TOAST_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<toast_message: \K[^>]+')
+    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
+    
+    # No toast mesajını HEX'ten decode et
+    NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | grep -oP '<no_toast_message: \K[^>]+')
+    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
+    
+    # Toast yerine echo eğer termux-toast yoksa
+    if ! command -v termux-toast >/dev/null 2>&1; then
+        if [ "$DAYS_DIFF" -le 2 ] && [ "$DAYS_DIFF" -ge 0 ]; then
+            echo "Toast: $TOAST_MESSAGE"
+        else
+            echo "Toast: $NO_TOAST_MESSAGE"
+        fi
+    else
+        # Son 3 gün içindeyse normal toast, değilse no toast
+        if [ "$DAYS_DIFF" -le 2 ] && [ "$DAYS_DIFF" -ge 0 ]; then
+            timeout 5 termux-toast "$TOAST_MESSAGE" || echo "Uyarı: Toast gösterilemedi, hikaye devam ediyor."
+        else
+            timeout 5 termux-toast "$NO_TOAST_MESSAGE" || echo "Uyarı: No toast gösterilemedi, hikaye devam ediyor."
+        fi
+    fi
+
+    # Runtime kısmını çıkar
+    RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
+    
+    # Runtime içeriğini SHA256 hash'le
+    UPDATE_HASH=$(echo -n "$RUNTIME_CONTENT" | sha256sum | cut -d' ' -f1)
+    
+    # Hash'i Base64'e çevir
+    UPDATE_CALCULATED_BASE64=$(echo -n "$UPDATE_HASH" | base64 | tr -d '\n')
+    
+    # Auth string’lerini çıkar
+    UPDATE_AUTH_START=$(echo "$UPDATE_CONTENT" | grep -oP '<auth>=\{\K[^}]+')
+    UPDATE_AUTH_END=$(echo "$UPDATE_CONTENT" | tail -n 2 | head -n 1)
+    UPDATE_COMBINED_AUTH="$UPDATE_AUTH_START$UPDATE_AUTH_END"
+    
+    # Doğrulama
+    if [ "$UPDATE_COMBINED_AUTH" = "$UPDATE_CALCULATED_BASE64" ]; then
+        # termux-startup'ı tamamen yeni runtime içeriğiyle değiştir
+        echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
+        chmod +x "$PREFIX/bin/termux-startup"
+        echo "termux-startup güncellendi!"
+    else
+        echo "Hata: UPDATE.md doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+else
+    echo "Uyarı: UPDATE.md bulunamadı, güncelleme yapılmadı."
+fi
+
+# Normal hikaye işleme
+if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
+    # Sunucudan dosyayı çek
+    CONTENT=$(curl -s "$STORY_URL")
+    
+    # Dosya boşsa hata
+    if [ -z "$CONTENT" ]; then
+        echo "Hata: Dosya çekilemedi! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    
+    # Prompt kısmını çıkar (prompt { ... } içindekiler)
+    PROMPT_CONTENT=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
+    
+    # Prompt kısmını SHA256 hash'le
+    HASH=$(echo -n "$PROMPT_CONTENT" | sha256sum | cut -d' ' -f1)
+    
+    # Hash'i Base64'e çevir, satır sonlarını temizle
+    CALCULATED_BASE64=$(echo -n "$HASH" | base64 | tr -d '\n')
+    
+    # Auth string’lerini çıkar
+    AUTH_START=$(echo "$CONTENT" | grep -oP '<auth>=\{\K[^}]+')
+    AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1)
+    COMBINED_AUTH="$AUTH_START$AUTH_END"
+    
+    # Doğrulama
+    if [ "$COMBINED_AUTH" != "$CALCULATED_BASE64" ]; then
+        echo "Hata: Doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    
+    # Tanıtım string’lerini kontrol et
+    if ! echo "$CONTENT" | grep -q '^<nasihat-v1>'; then
+        echo "Hata: Tanıtım string'i eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '<cert:'; then
+        echo "Hata: Sertifika eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '<production_date:'; then
+        echo "Hata: Üretim tarihi eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '<toast_message:'; then
+        echo "Hata: Toast mesajı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '<no_toast_message:'; then
+        echo "Hata: No toast mesajı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '<encode_method:'; then
+        echo "Hata: Encode yöntemi eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '^prompt {'; then
+        echo "Hata: Prompt başı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '^}$'; then
+        echo "Hata: Prompt sonu eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '^($'; then
+        echo "Hata: Auth sonu başı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    if ! echo "$CONTENT" | grep -q '^{$'; then
+        echo "Hata: Auth sonu kapanışı eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    
+    # Sertifikayı çıkar ve decode et
+    CERT_HEX=$(echo "$CONTENT" | grep -oP '<cert: \K[^>]+')
+    CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | tr -d '\n')
+    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d)
+    
+    # Sertifika doğrulama
+    if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
+        echo "Hata: Sertifika doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    
+    # Üretim tarihini çıkar (Unix timestamp)
+    PRODUCTION_TIMESTAMP=$(echo "$CONTENT" | grep -oP '<production_date: \K[^>]+')
+    
+    # Gün farkını hesapla
+    DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
+    
+    # Toast mesajını HEX'ten decode et
+    TOAST_HEX=$(echo "$CONTENT" | grep -oP '<toast_message: \K[^>]+')
+    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
+    
+    # No toast mesajını HEX'ten decode et
+    NO_TOAST_HEX=$(echo "$CONTENT" | grep -oP '<no_toast_message: \K[^>]+')
+    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
+    
+    # Toast yerine echo eğer termux-toast yoksa
+    if ! command -v termux-toast >/dev/null 2>&1; then
+        if [ "$DAYS_DIFF" -le 2 ] && [ "$DAYS_DIFF" -ge 0 ]; then
+            echo "Toast: $TOAST_MESSAGE"
+        else
+            echo "Toast: $NO_TOAST_MESSAGE"
+        fi
+    else
+        # Son 3 gün içindeyse normal toast, değilse no toast
+        if [ "$DAYS_DIFF" -le 2 ] && [ "$DAYS_DIFF" -ge 0 ]; then
+            timeout 5 termux-toast "$TOAST_MESSAGE" || echo "Uyarı: Toast gösterilemedi, hikaye devam ediyor."
+        else
+            timeout 5 termux-toast "$NO_TOAST_MESSAGE" || echo "Uyarı: No toast gösterilemedi, hikaye devam ediyor."
+        fi
+    fi
+    
+    # Encode yöntemini çıkar
+    ENCODE_METHOD=$(echo "$CONTENT" | grep -oP '<encode_method: \K[^>]+')
+    
+    # Hikaye kısmını çıkar
+    ENCODED_STORY=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
+    
+    # Hikayeyi decode et
+    if [ "$ENCODE_METHOD" = "url" ]; then
+        STORY=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('''$ENCODED_STORY'''))")
+    elif [ "$ENCODE_METHOD" = "base64" ]; then
+        STORY=$(echo "$ENCODED_STORY" | base64 -d)
+    elif [ "$ENCODE_METHOD" = "hex" ]; then
+        STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n')
+    elif [ "$ENCODE_METHOD" = "unix" ]; then
+        STORY=$(date -d @"$ENCODED_STORY" +%Y-%m-%d)
+    else
+        echo "Hata: Bilinmeyen encode yöntemi! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
+    
+    # Hikayeyi göster
+    echo -e "$STORY"
+else
+    echo "Hata: Bilinmeyen komut. Örnek: termux-startup adb process"
+fi
+}
+(
+NjVhM2Y0YzM5NTM1MzY4NzZiYzE5NDQ3NDE5ODBiZTRiZGQ5MDEy
+{
