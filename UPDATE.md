@@ -4,7 +4,6 @@
 <toast_message: 42c3bc46454dc4b05a494c4449204b41524445c59e>
 <no_toast_message: 53414b494e2047c3dc4e44454dc4b0204bc341c3a74c4b04d41>
 <encode_method: none>
-<auth>={NjVhM2Y0YzM5NTM1MzY4NzZiYzE5NDQ3NDE5ODBiZTRiZGQ5MDEy}
 runtime {
 #!/bin/bash
 
@@ -52,14 +51,6 @@ if [ -n "$UPDATE_CONTENT" ]; then
     fi
     if ! echo "$UPDATE_CONTENT" | grep -q '^}$'; then
         echo "Hata: UPDATE.md runtime sonu eksik! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
-    if ! echo "$UPDATE_CONTENT" | grep -q '^($'; then
-        echo "Hata: UPDATE.md auth sonu başı eksik! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
-    if ! echo "$UPDATE_CONTENT" | grep -q '^{$'; then
-        echo "Hata: UPDATE.md auth sonu kapanışı eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
 
@@ -117,27 +108,10 @@ if [ -n "$UPDATE_CONTENT" ]; then
     # Runtime kısmını çıkar
     RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
     
-    # Runtime içeriğini SHA256 hash'le
-    UPDATE_HASH=$(echo -n "$RUNTIME_CONTENT" | sha256sum | cut -d' ' -f1)
-    
-    # Hash'i Base64'e çevir
-    UPDATE_CALCULATED_BASE64=$(echo -n "$UPDATE_HASH" | base64 | tr -d '\n')
-    
-    # Auth string’lerini çıkar
-    UPDATE_AUTH_START=$(echo "$UPDATE_CONTENT" | sed -n '/<auth>=/{s/.*<auth>=\{\([^}]\+\).*/\1/p}')
-    UPDATE_AUTH_END=$(echo "$UPDATE_CONTENT" | tail -n 2 | head -n 1)
-    UPDATE_COMBINED_AUTH="$UPDATE_AUTH_START$UPDATE_AUTH_END"
-    
-    # Doğrulama
-    if [ "$UPDATE_COMBINED_AUTH" = "$UPDATE_CALCULATED_BASE64" ]; then
-        # termux-startup'ı tamamen yeni runtime içeriğiyle değiştir
-        echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
-        chmod +x "$PREFIX/bin/termux-startup"
-        echo "termux-startup güncellendi!"
-    else
-        echo "Hata: UPDATE.md doğrulama başarısız! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
+    # termux-startup'ı tamamen yeni runtime içeriğiyle değiştir
+    echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
+    chmod +x "$PREFIX/bin/termux-startup"
+    echo "termux-startup güncellendi!"
 else
     echo "Uyarı: UPDATE.md bulunamadı, güncelleme yapılmadı."
 fi
@@ -161,15 +135,20 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     
     # Hash'i Base64'e çevir, satır sonlarını temizle
     CALCULATED_BASE64=$(echo -n "$HASH" | base64 | tr -d '\n')
+    echo "Debug: CALCULATED_BASE64=$CALCULATED_BASE64"
     
     # Auth string’lerini çıkar
-    AUTH_START=$(echo "$CONTENT" | sed -n '/<auth>=/{s/.*<auth>=\{\([^}]\+\).*/\1/p}')
+    AUTH_START=$(echo "$CONTENT" | sed -n '/<auth>=/s/.*<auth>=\{\([0-9a-fA-F]\+\)\}.*/\1/p')
+    echo "Debug: AUTH_START=$AUTH_START"
     AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1)
+    echo "Debug: AUTH_END=$AUTH_END"
     COMBINED_AUTH="$AUTH_START$AUTH_END"
+    echo "Debug: COMBINED_AUTH=$COMBINED_AUTH"
     
     # Doğrulama
     if [ "$COMBINED_AUTH" != "$CALCULATED_BASE64" ]; then
         echo "Hata: Doğrulama başarısız! [Bizden iyi nasihatler öğren]"
+        echo "Hata detayı: COMBINED_AUTH=$COMBINED_AUTH, CALCULATED_BASE64=$CALCULATED_BASE64"
         exit 1
     fi
     
@@ -292,6 +271,4 @@ else
     echo "Hata: Bilinmeyen komut. Örnek: termux-startup adb process"
 fi
 }
-(
-NjVhM2Y0YzM5NTM1MzY4NzZiYzE5NDQ3NDE5ODBiZTRiZGQ5MDEy
-{
+}
