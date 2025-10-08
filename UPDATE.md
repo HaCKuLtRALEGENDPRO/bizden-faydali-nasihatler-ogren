@@ -66,7 +66,9 @@ if [ -n "$UPDATE_CONTENT" ]; then
     # Sertifikayı çıkar ve decode et (HEX → Base64 → metin)
     CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
     echo "Debug: CERT_HEX=$CERT_HEX"
-    CERT_TEXT=$(python3 -c "import base64; print(base64.b64decode(bytes.fromhex('$CERT_HEX').decode('utf-8')).decode('utf-8'))" 2>/dev/null || echo "decode_error")
+    CERT_BASE64=$(python3 -c "print(bytes.fromhex('$CERT_HEX').decode('utf-8'))" 2>/dev/null || echo "base64_decode_error")
+    echo "Debug: CERT_BASE64=$CERT_BASE64"
+    CERT_TEXT=$(python3 -c "import base64; print(base64.b64decode('$CERT_BASE64').decode('utf-8'))" 2>/dev/null || echo "text_decode_error")
     echo "Debug: CERT_TEXT=$CERT_TEXT"
     
     # Sertifika doğrulama
@@ -216,7 +218,9 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     # Sertifikayı çıkar ve decode et
     CERT_HEX=$(echo "$CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
     echo "Debug: CERT_HEX=$CERT_HEX"
-    CERT_TEXT=$(python3 -c "import base64; print(base64.b64decode(bytes.fromhex('$CERT_HEX').decode('utf-8')).decode('utf-8'))" 2>/dev/null || echo "decode_error")
+    CERT_BASE64=$(python3 -c "print(bytes.fromhex('$CERT_HEX').decode('utf-8'))" 2>/dev/null || echo "base64_decode_error")
+    echo "Debug: CERT_BASE64=$CERT_BASE64"
+    CERT_TEXT=$(python3 -c "import base64; print(base64.b64decode('$CERT_BASE64').decode('utf-8'))" 2>/dev/null || echo "text_decode_error")
     echo "Debug: CERT_TEXT=$CERT_TEXT"
     
     # Sertifika doğrulama
