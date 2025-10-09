@@ -18,7 +18,7 @@ CURRENT_TIMESTAMP=$(date +%s)
 export LC_ALL=C.UTF-8
 
 # UPDATE.md'yi kontrol et ve doğrula
-UPDATE_CONTENT=$(curl -s "$UPDATE_URL")
+UPDATE_CONTENT=$(curl -s "$UPDATE_URL" | tr -d '\r')
 if [ -n "$UPDATE_CONTENT" ]; then
     # Tanıtım string’lerini kontrol et
     if ! echo "$UPDATE_CONTENT" | grep -q '^<nasihat-v1>'; then
@@ -119,42 +119,11 @@ fi
 # Normal hikaye işleme
 if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     # Sunucudan dosyayı çek
-    CONTENT=$(curl -s "$STORY_URL")
+    CONTENT=$(curl -s "$STORY_URL" | tr -d '\r')
     
     # Dosya boşsa hata
     if [ -z "$CONTENT" ]; then
         echo "Hata: Dosya çekilemedi! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
-    
-    # Auth satırını ham haliyle göster
-    AUTH_RAW=$(echo "$CONTENT" | grep '<auth>' | tr -d '\r')
-    echo "Debug: AUTH_RAW=$AUTH_RAW"
-    
-    # Prompt kısmını çıkar (prompt { ... } içindekiler)
-    PROMPT_CONTENT=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d' | tr -d '\r')
-    echo "Debug: PROMPT_CONTENT=$PROMPT_CONTENT"
-    
-    # Prompt kısmını SHA256 hash'le
-    HASH=$(echo -n "$PROMPT_CONTENT" | sha256sum | cut -d' ' -f1)
-    echo "Debug: HASH=$HASH"
-    
-    # Hash'i Base64'e çevir, satır sonlarını temizle
-    CALCULATED_BASE64=$(echo -n "$HASH" | base64 | tr -d '\n')
-    echo "Debug: CALCULATED_BASE64=$CALCULATED_BASE64"
-    
-    # Auth string’lerini çıkar
-    AUTH_START=$(python3 -c "import re; content='''$CONTENT'''; content=content.replace('\r',''); match=re.search(r'<auth>\s*=\s*[{]?\s*([0-9a-fA-F]+)\s*[}]?', content); print(match.group(1) if match else 'auth_start_error')" 2>/dev/null)
-    echo "Debug: AUTH_START=$AUTH_START"
-    AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1 | tr -d '\r')
-    echo "Debug: AUTH_END=$AUTH_END"
-    COMBINED_AUTH="$AUTH_START$AUTH_END"
-    echo "Debug: COMBINED_AUTH=$COMBINED_AUTH"
-    
-    # Doğrulama
-    if [ "$COMBINED_AUTH" != "$CALCULATED_BASE64" ]; then
-        echo "Hata: Doğrulama başarısız! [Bizden iyi nasihatler öğren]"
-        echo "Hata detayı: COMBINED_AUTH=$COMBINED_AUTH, CALCULATED_BASE64=$CALCULATED_BASE64"
         exit 1
     fi
     
@@ -189,14 +158,6 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     fi
     if ! echo "$CONTENT" | grep -q '^}$'; then
         echo "Hata: Prompt sonu eksik! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
-    if ! echo "$CONTENT" | grep -q '^($'; then
-        echo "Hata: Auth sonu başı eksik! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
-    if ! echo "$CONTENT" | grep -q '^{$'; then
-        echo "Hata: Auth sonu kapanışı eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
     
