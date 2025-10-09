@@ -129,16 +129,18 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     
     # Prompt kısmını çıkar (prompt { ... } içindekiler)
     PROMPT_CONTENT=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
+    echo "Debug: PROMPT_CONTENT=$PROMPT_CONTENT"
     
     # Prompt kısmını SHA256 hash'le
     HASH=$(echo -n "$PROMPT_CONTENT" | sha256sum | cut -d' ' -f1)
+    echo "Debug: HASH=$HASH"
     
     # Hash'i Base64'e çevir, satır sonlarını temizle
     CALCULATED_BASE64=$(echo -n "$HASH" | base64 | tr -d '\n')
     echo "Debug: CALCULATED_BASE64=$CALCULATED_BASE64"
     
     # Auth string’lerini çıkar
-    AUTH_START=$(echo "$CONTENT" | sed -n '/<auth>=/s/.*<auth>=\{\([0-9a-fA-F]\+\)\}.*/\1/p')
+    AUTH_START=$(python3 -c "import re; content='''$CONTENT'''; match=re.search(r'<auth>=\{([0-9a-fA-F]+)\}', content); print(match.group(1) if match else 'auth_start_error')" 2>/dev/null)
     echo "Debug: AUTH_START=$AUTH_START"
     AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1)
     echo "Debug: AUTH_END=$AUTH_END"
@@ -247,28 +249,30 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     
     # Encode yöntemini çıkar
     ENCODE_METHOD=$(echo "$CONTENT" | sed -n '/<encode_method:/s/.*<encode_method: \([^>]\+\).*/\1/p')
+    echo "Debug: ENCODE_METHOD=$ENCODE_METHOD"
     
     # Hikaye kısmını çıkar
     ENCODED_STORY=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
+    echo "Debug: ENCODED_STORY=$ENCODED_STORY"
     
     # Hikayeyi decode et
     if [ "$ENCODE_METHOD" = "url" ]; then
-        STORY=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('''$ENCODED_STORY'''))")
+        STORY=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('''$ENCODED_STORY'''))" 2>/dev/null || echo "url_decode_error")
     elif [ "$ENCODE_METHOD" = "base64" ]; then
-        STORY=$(echo "$ENCODED_STORY" | base64 -d)
+        STORY=$(echo "$ENCODED_STORY" | base64 -d 2>/dev/null || echo "base64_decode_error")
     elif [ "$ENCODE_METHOD" = "hex" ]; then
-        STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n')
+        STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>/dev/null || echo "hex_decode_error")
     elif [ "$ENCODE_METHOD" = "unix" ]; then
-        STORY=$(date -d @"$ENCODED_STORY" +%Y-%m-%d)
+        STORY=$(date -d @"$ENCODED_STORY" +%Y-%m-%d 2>/dev/null || echo "unix_decode_error")
     else
         echo "Hata: Bilinmeyen encode yöntemi! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
+    echo "Debug: STORY=$STORY"
     
     # Hikayeyi göster
     echo -e "$STORY"
 else
     echo "Hata: Bilinmeyen komut. Örnek: termux-startup adb process"
 fi
-}
 }
