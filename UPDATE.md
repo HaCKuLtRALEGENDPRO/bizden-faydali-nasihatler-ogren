@@ -279,4 +279,5 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 else
     echo "Hata: Bilinmeyen komut. Örnek: termux-startup adb process"
 fi
+#whatta hell
 }
