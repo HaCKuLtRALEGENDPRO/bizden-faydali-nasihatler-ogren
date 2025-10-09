@@ -4,10 +4,6 @@
 <toast_message: 42c3bc46454dc4b05a494c4449204b41524445c59e>
 <no_toast_message: 53414b494e2047c3dc4e44454dc4b0204bc341c3a74c4b04d41>
 <encode_method: url>
-<auth>={MDRkYTE3NTZmNjMwZTdjOWQ2MzU0ZjA2N2FlNzU5YjIy}
 prompt {
 Welcome%20to%20the%20daily%20story%20from%20HaCKuLtRALEGENDPRO%21%20Check%20out%20the%20latest%20nasihat%20with%20some%20spicy%20bufe%20vibes.
 }
-(
-MjkwODY4OWRlNjg0YWY5OTlhZDZiNTk1ODBiZmY1Zg==
-{
