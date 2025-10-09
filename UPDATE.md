@@ -127,6 +127,10 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
     
+    # Auth satırını ham haliyle göster
+    AUTH_RAW=$(echo "$CONTENT" | grep '<auth>')
+    echo "Debug: AUTH_RAW=$AUTH_RAW"
+    
     # Prompt kısmını çıkar (prompt { ... } içindekiler)
     PROMPT_CONTENT=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
     echo "Debug: PROMPT_CONTENT=$PROMPT_CONTENT"
@@ -140,7 +144,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     echo "Debug: CALCULATED_BASE64=$CALCULATED_BASE64"
     
     # Auth string’lerini çıkar
-    AUTH_START=$(python3 -c "import re; content='''$CONTENT'''; match=re.search(r'<auth>=\{([0-9a-fA-F]+)\}', content); print(match.group(1) if match else 'auth_start_error')" 2>/dev/null)
+    AUTH_START=$(python3 -c "import re; content='''$CONTENT'''; match=re.search(r'<auth>\s*=\s*[{]?\s*([0-9a-fA-F]+)\s*[}]?', content); print(match.group(1) if match else 'auth_start_error')" 2>/dev/null)
     echo "Debug: AUTH_START=$AUTH_START"
     AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1)
     echo "Debug: AUTH_END=$AUTH_END"
