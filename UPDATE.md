@@ -80,14 +80,19 @@ if [ -n "$UPDATE_CONTENT" ]; then
 
     # Gün farkını hesapla
     DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
+    echo "Debug: CURRENT_TIMESTAMP=$CURRENT_TIMESTAMP"
+    echo "Debug: PRODUCTION_TIMESTAMP=$PRODUCTION_TIMESTAMP"
+    echo "Debug: DAYS_DIFF=$DAYS_DIFF"
 
     # Toast mesajını HEX'ten decode et
     TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
     TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
+    echo "Debug: TOAST_MESSAGE=$TOAST_MESSAGE"
 
     # No toast mesajını HEX'ten decode et
     NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
     NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
+    echo "Debug: NO_TOAST_MESSAGE=$NO_TOAST_MESSAGE"
 
     # Toast yerine echo eğer termux-toast yoksa
     if ! command -v termux-toast >/dev/null 2>&1; then
@@ -187,14 +192,19 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 
     # Gün farkını hesapla
     DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
+    echo "Debug: CURRENT_TIMESTAMP=$CURRENT_TIMESTAMP"
+    echo "Debug: PRODUCTION_TIMESTAMP=$PRODUCTION_TIMESTAMP"
+    echo "Debug: DAYS_DIFF=$DAYS_DIFF"
 
     # Toast mesajını HEX'ten decode et
     TOAST_HEX=$(echo "$CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
     TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
+    echo "Debug: TOAST_MESSAGE=$TOAST_MESSAGE"
 
     # No toast mesajını HEX'ten decode et
     NO_TOAST_HEX=$(echo "$CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
     NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
+    echo "Debug: NO_TOAST_MESSAGE=$NO_TOAST_MESSAGE"
 
     # Toast yerine echo eğer termux-toast yoksa
     if ! command -v termux-toast >/dev/null 2>&1; then
@@ -237,7 +247,4 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 
     # Hikayeyi göster
     echo -e "$STORY"
-else
-    echo "Hata: Bilinmeyen komut. Örnek: termux-startup adb process"
-fi
 }
