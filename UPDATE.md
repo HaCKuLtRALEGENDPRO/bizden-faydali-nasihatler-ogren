@@ -128,11 +128,11 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     fi
     
     # Auth satırını ham haliyle göster
-    AUTH_RAW=$(echo "$CONTENT" | grep '<auth>')
+    AUTH_RAW=$(echo "$CONTENT" | grep '<auth>' | tr -d '\r')
     echo "Debug: AUTH_RAW=$AUTH_RAW"
     
     # Prompt kısmını çıkar (prompt { ... } içindekiler)
-    PROMPT_CONTENT=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
+    PROMPT_CONTENT=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d' | tr -d '\r')
     echo "Debug: PROMPT_CONTENT=$PROMPT_CONTENT"
     
     # Prompt kısmını SHA256 hash'le
@@ -144,9 +144,9 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     echo "Debug: CALCULATED_BASE64=$CALCULATED_BASE64"
     
     # Auth string’lerini çıkar
-    AUTH_START=$(python3 -c "import re; content='''$CONTENT'''; match=re.search(r'<auth>\s*=\s*[{]?\s*([0-9a-fA-F]+)\s*[}]?', content); print(match.group(1) if match else 'auth_start_error')" 2>/dev/null)
+    AUTH_START=$(python3 -c "import re; content='''$CONTENT'''; content=content.replace('\r',''); match=re.search(r'<auth>\s*=\s*[{]?\s*([0-9a-fA-F]+)\s*[}]?', content); print(match.group(1) if match else 'auth_start_error')" 2>/dev/null)
     echo "Debug: AUTH_START=$AUTH_START"
-    AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1)
+    AUTH_END=$(echo "$CONTENT" | tail -n 2 | head -n 1 | tr -d '\r')
     echo "Debug: AUTH_END=$AUTH_END"
     COMBINED_AUTH="$AUTH_START$AUTH_END"
     echo "Debug: COMBINED_AUTH=$COMBINED_AUTH"
@@ -256,7 +256,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     echo "Debug: ENCODE_METHOD=$ENCODE_METHOD"
     
     # Hikaye kısmını çıkar
-    ENCODED_STORY=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d')
+    ENCODED_STORY=$(echo "$CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d' | tr -d '\r')
     echo "Debug: ENCODED_STORY=$ENCODED_STORY"
     
     # Hikayeyi decode et
