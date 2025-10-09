@@ -1,8 +1,8 @@
 <nasihat-v1>
 <cert: 516D3974596D4567546D467A6157686864434469684B49675530464C535534675330484468306C535455453D>
 <production_date: 1759795200>
-<toast_message: 42c3bc46454dc4b05a494c4449204b41524445c59e>
-<no_toast_message: 53414b494e2047c3dc4e44454dc4b0204bc341c3a74c4b04d41>
+<toast_message: 42c39cf45a4d494e20c39c43494c4449204b41524445c59e>
+<no_toast_message: 53414b494e2047c39c4e44454dc4b0204b41c38749524d41>
 <encode_method: none>
 runtime {
 #!/bin/bash
@@ -86,12 +86,12 @@ if [ -n "$UPDATE_CONTENT" ]; then
 
     # Toast mesajını HEX'ten decode et
     TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
+    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | iconv -f UTF-8 -t UTF-8 2>/dev/null || echo "toast_decode_error")
     echo "Debug: TOAST_MESSAGE=$TOAST_MESSAGE"
 
     # No toast mesajını HEX'ten decode et
     NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
+    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | iconv -f UTF-8 -t UTF-8 2>/dev/null || echo "no_toast_decode_error")
     echo "Debug: NO_TOAST_MESSAGE=$NO_TOAST_MESSAGE"
 
     # Toast yerine echo eğer termux-toast yoksa
@@ -117,8 +117,6 @@ if [ -n "$UPDATE_CONTENT" ]; then
     echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
     chmod +x "$PREFIX/bin/termux-startup"
     echo "termux-startup güncellendi!"
-else
-    echo "Uyarı: UPDATE.md bulunamadı, güncelleme yapılmadı."
 fi
 
 # Normal hikaye işleme
@@ -198,12 +196,12 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 
     # Toast mesajını HEX'ten decode et
     TOAST_HEX=$(echo "$CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | tr -d '\n')
+    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p | iconv -f UTF-8 -t UTF-8 2>/dev/null || echo "toast_decode_error")
     echo "Debug: TOAST_MESSAGE=$TOAST_MESSAGE"
 
     # No toast mesajını HEX'ten decode et
     NO_TOAST_HEX=$(echo "$CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | tr -d '\n')
+    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p | iconv -f UTF-8 -t UTF-8 2>/dev/null || echo "no_toast_decode_error")
     echo "Debug: NO_TOAST_MESSAGE=$NO_TOAST_MESSAGE"
 
     # Toast yerine echo eğer termux-toast yoksa
