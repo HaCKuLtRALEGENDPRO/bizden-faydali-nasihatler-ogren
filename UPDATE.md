@@ -3,9 +3,12 @@
 <production_date: 1759795200>
 <toast_message: 42c39c46454dc4b05a494c4449204b41524445c59e>
 <no_toast_message: 53414b494e2047c39c4e44454dc4b0204b41c38749524d41>
-<encode_method: url>
+<encode_method: none>
 runtime {
 #!/bin/bash
+
+# Debug için satır numarası takibi
+PS4='Line ${LINENO}: '
 
 # Sunucudan dosyaları çekecek URL'ler
 UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
@@ -22,7 +25,6 @@ export LC_ALL=C.UTF-8
 # UPDATE.md'yi kontrol et ve doğrula
 UPDATE_CONTENT=$(curl -s "$UPDATE_URL" | tr -d '\r')
 if [ -n "$UPDATE_CONTENT" ]; then
-    # Tanıtım string’lerini kontrol et
     if ! echo "$UPDATE_CONTENT" | grep -q '^<nasihat-v1>'; then
         echo "Hata: UPDATE.md tanıtım string'i eksik! [Bizden iyi nasihatler öğren]"
         exit 1
@@ -245,4 +247,5 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 
     # Hikayeyi göster
     echo -e "$STORY"
+fi
 }
