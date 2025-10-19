@@ -1,7 +1,7 @@
 <nasihat-v1>
 <cert: 516D3974596D4567546D467A6157686864434469684B49675530464C535534675330484468306C535455453D>
 <production_date: 1760597052>
-<toast_message: 42C39C46454DC4B05A2041C387494C4449204B41524445C59E>
+<toast_message: 42C39C46452041C387494C4449204B41524445C59E494D21>
 <no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
 runtime {
 #!/bin/bash
@@ -17,8 +17,11 @@ CURRENT_TIMESTAMP=$(date +%s)
 # UTF-8 locale ayarını zorla
 export LC_ALL=C.UTF-8
 
+# Önbelleği temizle
+rm -f /tmp/update_cache /tmp/story_cache 2>/dev/null
+
 # UPDATE.md'yi kontrol et ve doğrula
-UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" "$UPDATE_URL" | tr -d '\r')
+UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" --retry 3 --retry-delay 2 "$UPDATE_URL" | tr -d '\r')
 if [ -z "$UPDATE_CONTENT" ]; then
     echo "Hata: UPDATE.md çekilemedi! İnternet bağlantınızı kontrol edin. [Bizden iyi nasihatler öğren]"
     exit 1
@@ -34,6 +37,10 @@ done
 
 # Sertifikayı çıkar ve decode et
 CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
+if [ -z "$CERT_HEX" ]; then
+    echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
+    exit 1
+fi
 if ! CERT_BASE64=$(python3 -c "print(bytes.fromhex('$CERT_HEX').decode('utf-8'))" 2>/tmp/cert_err); then
     echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
     cat /tmp/cert_err
@@ -68,12 +75,20 @@ fi
 
 # Toast mesajlarını çıkar ve decode et
 TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+if [ -z "$TOAST_HEX" ]; then
+    echo "Hata: Toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
+    exit 1
+fi
 if ! TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>/tmp/toast_err); then
     echo "Hata: Toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
     cat /tmp/toast_err
     exit 1
 fi
 NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+if [ -z "$NO_TOAST_HEX" ]; then
+    echo "Hata: No toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
+    exit 1
+fi
 if ! NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>/tmp/toast_err); then
     echo "Hata: No toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
     cat /tmp/toast_err
@@ -97,13 +112,17 @@ fi
 
 # Runtime kısmını çıkar ve güncelle
 RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
+if [ -z "$RUNTIME_CONTENT" ]; then
+    echo "Hata: Runtime içeriği eksik! [Bizden iyi nasihatler öğren]"
+    exit 1
+fi
 echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
 chmod +x "$PREFIX/bin/termux-startup"
 echo "termux-startup güncellendi!"
 
 # Normal hikaye işleme
 if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
-    CONTENT=$(curl -s -H "Cache-Control: no-cache" "$STORY_URL" | tr -d '\r')
+    CONTENT=$(curl -s -H "Cache-Control: no-cache" --retry 3 --retry-delay 2 "$STORY_URL" | tr -d '\r')
     if [ -z "$CONTENT" ]; then
         echo "Hata: Dosya çekilemedi! İnternet bağlantınızı kontrol edin. [Bizden iyi nasihatler öğren]"
         exit 1
@@ -119,6 +138,10 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 
     # Sertifikayı çıkar ve decode et
     CERT_HEX=$(echo "$CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
+    if [ -z "$CERT_HEX" ]; then
+        echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
     if ! CERT_BASE64=$(python3 -c "print(bytes.fromhex('$CERT_HEX').decode('utf-8'))" 2>/tmp/cert_err); then
         echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
         cat /tmp/cert_err
@@ -153,12 +176,20 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
 
     # Toast mesajlarını çıkar ve decode et
     TOAST_HEX=$(echo "$CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+    if [ -z "$TOAST_HEX" ]; then
+        echo "Hata: Toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
     if ! TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>/tmp/toast_err); then
         echo "Hata: Toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
         cat /tmp/toast_err
         exit 1
     fi
     NO_TOAST_HEX=$(echo "$CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+    if [ -z "$NO_TOAST_HEX" ]; then
+        echo "Hata: No toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
+        exit 1
+    fi
     if ! NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>/tmp/toast_err); then
         echo "Hata: No toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
         cat /tmp/toast_err
