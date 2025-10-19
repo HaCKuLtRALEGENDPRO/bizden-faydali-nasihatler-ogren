@@ -1,9 +1,9 @@
 <nasihat-v1>
 <cert: 516D3974596D4567546D467A6157686864434469684B49675530464C535534675330484468306C535455453D>
-<production_date: 1760597052>
+<production_date: 1760941260>
 <toast_message: 42c39c46454dc4b05a494c4449204b41524445c59e>
 <no_toast_message: 53414b494e2047c39c4e44454dc4b0204b41c38749524d41>
 <encode_method: url>
 prompt {
-Welcome%20to%20the%20daily%20story%20from%20HaCKuLtRALEGENDPRO%21%20Check%20out%20the%20latest%20nasihat%20with%20some%20spicy%20bufe%20vibes.
+Bu%20anas%C4%B1%20ka%C5%9Far%20k%C4%B1z%20trene%20binmek%20istedi%2C%20ama%20%C3%A7%C3%BCk%20kadar%20boyu%20oldu%C4%9Fu%20i%C3%A7in%20al%C4%B1nmad%C4%B1...%0AYav%C5%9Fak%20abisi%20ise%20trene%20al%C4%B1n%C4%B1nca%20k%C4%B1za%20orta%20parmak%20g%C3%B6sterip%20ta%C5%9Fak%20ge%C3%A7ti...%0A%C3%87ok%20%C3%BCz%C3%BClen%20gariban%20k%C4%B1z%20G%C3%BCvenli%C4%9Fe%20%22Bak%20abi%20anan%C4%B1%20sikiyorlar%22%20diyerek%20dikkatini%20da%C4%9F%C4%B1tt%C4%B1ktan%20sonra%20%C3%A7akt%C4%B1rmadan%20trene%20bindi...%0AAma%20daha%20ilk%20savrulmada%20g%C3%B6t%C3%BC%20trenden%20ayr%C4%B1ld%C4%B1%2C%20Ve%20havada%20takla%20at%C4%B1p%20bok%20gibi%20yere%20yap%C4%B1%C5%9Ft%C4%B1...%0AK%C4%B1z%C4%B1%20yakalamak%20i%C3%A7in%20trene%20binen%20g%C3%BCvenli%C4%9Fin%20ise%20kilosu%20y%C3%BCz%C3%BCnden%20emniyet%20kemeri%20bir%20anda%20a%C3%A7%C4%B1ld%C4%B1...%0ANe%20yaz%C4%B1k%20ki%20hem%20k%C4%B1z%2C%20hem%20de%20g%C3%BCvenlik%20orac%C4%B1kta%20yarra%C4%9F%C4%B1%20yedi...
 }
