@@ -281,4 +281,5 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     # Hikayeyi göster
     echo -e "$STORY"
 fi
+#aybinəqədiii
 }
