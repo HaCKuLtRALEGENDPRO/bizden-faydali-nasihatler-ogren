@@ -1,9 +1,8 @@
 <nasihat-v1>
-<cert: 516D3974596D4567546D467A6157686864434469684B49675530464C535534675330484468306C535455453D>
-<production_date: 1760612051>
-<toast_message: 42c39c46454dc4b05a494c4449204b41524445c59e>
-<no_toast_message: 53414b494e2047c39c4e44454dc4b0204b41c38749524d41>
-<encode_method: url>
+<cert: 516D3974596D4567546D467A6157686864434269684B49675530464C535534675330484468306C535455453D>
+<production_date: 1760597052>
+<toast_message: 42C39C46454DC4B05A2041C387494C4449204B41524445C59E>
+<no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
 runtime {
 #!/bin/bash
 
@@ -19,7 +18,7 @@ CURRENT_TIMESTAMP=$(date +%s)
 export LC_ALL=C.UTF-8
 
 # UPDATE.md'yi kontrol et ve doğrula
-UPDATE_CONTENT=$(curl -s --no-cache "$UPDATE_URL" | tr -d '\r')
+UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" "$UPDATE_URL" | tr -d '\r')
 if [ -n "$UPDATE_CONTENT" ]; then
     if ! echo "$UPDATE_CONTENT" | grep -q '^<nasihat-v1>'; then
         echo "Hata: UPDATE.md tanıtım string'i eksik! [Bizden iyi nasihatler öğren]"
@@ -39,10 +38,6 @@ if [ -n "$UPDATE_CONTENT" ]; then
     fi
     if ! echo "$UPDATE_CONTENT" | grep -q '<no_toast_message:'; then
         echo "Hata: UPDATE.md no toast mesajı eksik! [Bizden iyi nasihatler öğren]"
-        exit 1
-    fi
-    if ! echo "$UPDATE_CONTENT" | grep -q '<encode_method:'; then
-        echo "Hata: UPDATE.md encode yöntemi eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
     if ! echo "$UPDATE_CONTENT" | grep -q '^runtime {'; then
@@ -113,7 +108,7 @@ fi
 # Normal hikaye işleme
 if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     # Sunucudan dosyayı çek
-    CONTENT=$(curl -s --no-cache "$STORY_URL" | tr -d '\r')
+    CONTENT=$(curl -s -H "Cache-Control: no-cache" "$STORY_URL" | tr -d '\r')
 
     # Dosya boşsa hata
     if [ -z "$CONTENT" ]; then
@@ -121,7 +116,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
 
-    # Tanıtım string’lerini kontrol et
+    # Tanıtım string'lerini kontrol et
     if ! echo "$CONTENT" | grep -q '^<nasihat-v1>'; then
         echo "Hata: Tanıtım string'i eksik! [Bizden iyi nasihatler öğren]"
         exit 1
@@ -225,3 +220,4 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     # Hikayeyi göster
     echo -e "$STORY"
 fi
+}
