@@ -17,13 +17,8 @@ CURRENT_TIMESTAMP=$(date +%s)
 # UTF-8 locale ayarını zorla
 export LC_ALL=C.UTF-8
 
-# Hata dosyalarını $HOME/tmp dizinine taşı
-ERR_DIR="$HOME/tmp"
-mkdir -p "$ERR_DIR" 2>/dev/null
-chmod 700 "$ERR_DIR" 2>/dev/null
-
 # Önbelleği temizle
-rm -f "$ERR_DIR"/*_cache 2>/dev/null
+rm -f "$HOME/tmp"/*_cache 2>/dev/null
 
 # UPDATE.md'yi kontrol et ve doğrula
 UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" --retry 3 --retry-delay 2 --connect-timeout 5 "$UPDATE_URL" | tr -d '\r')
@@ -46,14 +41,16 @@ if [ -z "$CERT_HEX" ]; then
     echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-CERT_BASE64=$(python3 -c "import sys; print(bytes.fromhex('$CERT_HEX').decode('utf-8'), end='')" 2>&1)
-if [ $? -ne 0 ]; then
-    echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
+# HEX'i Base64'e çevir
+CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
+if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
+    echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $CERT_BASE64"
     exit 1
 fi
-CERT_TEXT=$(python3 -c "import sys, base64; print(base64.b64decode('$CERT_BASE64').decode('utf-8'), end='')" 2>&1)
-if [ $? -ne 0 ]; then
+# Base64'ü saf metne çevir
+CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>&1)
+if [ $? -ne 0 ] || [ -z "$CERT_TEXT" ]; then
     echo "Hata: Sertifika Base64 decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $CERT_TEXT"
     exit 1
@@ -87,7 +84,7 @@ if [ -z "$TOAST_HEX" ]; then
     exit 1
 fi
 TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>&1)
-if [ $? -ne 0 ]; then
+if [ $? -ne 0 ] || [ -z "$TOAST_MESSAGE" ]; then
     echo "Hata: Toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $TOAST_MESSAGE"
     exit 1
@@ -98,7 +95,7 @@ if [ -z "$NO_TOAST_HEX" ]; then
     exit 1
 fi
 NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>&1)
-if [ $? -ne 0 ]; then
+if [ $? -ne 0 ] || [ -z "$NO_TOAST_MESSAGE" ]; then
     echo "Hata: No toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $NO_TOAST_MESSAGE"
     exit 1
@@ -151,14 +148,14 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
-    CERT_BASE64=$(python3 -c "import sys; print(bytes.fromhex('$CERT_HEX').decode('utf-8'), end='')" 2>&1)
-    if [ $? -ne 0 ]; then
-        echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
+    CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
+    if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
+        echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $CERT_BASE64"
         exit 1
     fi
-    CERT_TEXT=$(python3 -c "import sys, base64; print(base64.b64decode('$CERT_BASE64').decode('utf-8'), end='')" 2>&1)
-    if [ $? -ne 0 ]; then
+    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>&1)
+    if [ $? -ne 0 ] || [ -z "$CERT_TEXT" ]; then
         echo "Hata: Sertifika Base64 decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $CERT_TEXT"
         exit 1
@@ -192,7 +189,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
     TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>&1)
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ] || [ -z "$TOAST_MESSAGE" ]; then
         echo "Hata: Toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $TOAST_MESSAGE"
         exit 1
@@ -203,7 +200,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         exit 1
     fi
     NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>&1)
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ] || [ -z "$NO_TOAST_MESSAGE" ]; then
         echo "Hata: No toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $NO_TOAST_MESSAGE"
         exit 1
@@ -242,7 +239,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     case "$ENCODE_METHOD" in
         "url")
             STORY=$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote('''$ENCODED_STORY'''), end='')" 2>&1)
-            if [ $? -ne 0 ]; then
+            if [ $? -ne 0 ] || [ -z "$STORY" ]; then
                 echo "Hata: URL decode başarısız! [Bizden iyi nasihatler öğren]"
                 echo "Hata detayı: $STORY"
                 exit 1
@@ -250,7 +247,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
             ;;
         "base64")
             STORY=$(echo "$ENCODED_STORY" | base64 -d 2>&1)
-            if [ $? -ne 0 ]; then
+            if [ $? -ne 0 ] || [ -z "$STORY" ]; then
                 echo "Hata: Base64 decode başarısız! [Bizden iyi nasihatler öğren]"
                 echo "Hata detayı: $STORY"
                 exit 1
@@ -258,7 +255,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
             ;;
         "hex")
             STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>&1)
-            if [ $? -ne 0 ]; then
+            if [ $? -ne 0 ] || [ -z "$STORY" ]; then
                 echo "Hata: HEX decode başarısız! [Bizden iyi nasihatler öğren]"
                 echo "Hata detayı: $STORY"
                 exit 1
@@ -266,7 +263,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
             ;;
         "unix")
             STORY=$(date -d @"$ENCODED_STORY" +%Y-%m-%d 2>&1)
-            if [ $? -ne 0 ]; then
+            if [ $? -ne 0 ] || [ -z "$STORY" ]; then
                 echo "Hata: Unix decode başarısız! [Bizden iyi nasihatler öğren]"
                 echo "Hata detayı: $STORY"
                 exit 1
