@@ -18,10 +18,10 @@ CURRENT_TIMESTAMP=$(date +%s)
 export LC_ALL=C.UTF-8
 
 # Önbelleği temizle
-rm -f "$HOME/tmp"/*_cache 2>/dev/null
+rm -f /data/data/com.termux/files/home/tmp/*_cache 2>/dev/null
 
 # UPDATE.md'yi kontrol et ve doğrula
-UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" --retry 3 --retry-delay 2 --connect-timeout 5 "$UPDATE_URL" | tr -d '\r')
+UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$UPDATE_URL" | tr -d '\r')
 if [ -z "$UPDATE_CONTENT" ]; then
     echo "Hata: UPDATE.md çekilemedi! İnternet bağlantınızı kontrol edin. [Bizden iyi nasihatler öğren]"
     exit 1
@@ -41,14 +41,12 @@ if [ -z "$CERT_HEX" ]; then
     echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-# HEX'i Base64'e çevir
 CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
 if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
     echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $CERT_BASE64"
     exit 1
 fi
-# Base64'ü saf metne çevir
 CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>&1)
 if [ $? -ne 0 ] || [ -z "$CERT_TEXT" ]; then
     echo "Hata: Sertifika Base64 decode başarısız! [Bizden iyi nasihatler öğren]"
