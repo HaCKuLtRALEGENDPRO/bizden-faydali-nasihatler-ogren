@@ -6,6 +6,31 @@
 runtime {
 #!/bin/bash
 
+# Yardımcılar: Harici bağımlılıksız (xxd/python) decoder fonksiyonları
+decode_hex_to_ascii() {
+    local hex="$1"
+    if [ -z "$hex" ]; then
+        echo "Boş hex girişi" >&2
+        return 1
+    fi
+    case "$hex" in
+        *[!0-9a-fA-F]*)
+            echo "Geçersiz hex girişi" >&2
+            return 1
+            ;;
+    esac
+    if [ $(( ${#hex} % 2 )) -ne 0 ]; then
+        echo "Hex uzunluğu çift olmalı" >&2
+        return 1
+    fi
+    printf '%b' "$(echo "$hex" | sed 's/../\\x&/g')"
+}
+
+url_decode() {
+    local data="${1//+/ }"
+    printf '%b' "${data//%/\\x}"
+}
+
 # Sunucudan dosyaları çekecek URL'ler
 UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
 STORY_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/gunun_hikayesi.txt"
@@ -41,9 +66,9 @@ if [ -z "$CERT_HEX" ]; then
     echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
+CERT_BASE64=$(decode_hex_to_ascii "$CERT_HEX" 2>&1)
 if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
-    echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
+    echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $CERT_BASE64"
     exit 1
 fi
@@ -81,7 +106,7 @@ if [ -z "$TOAST_HEX" ]; then
     echo "Hata: Toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>&1)
+TOAST_MESSAGE=$(decode_hex_to_ascii "$TOAST_HEX" 2>&1)
 if [ $? -ne 0 ] || [ -z "$TOAST_MESSAGE" ]; then
     echo "Hata: Toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $TOAST_MESSAGE"
@@ -92,7 +117,7 @@ if [ -z "$NO_TOAST_HEX" ]; then
     echo "Hata: No toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>&1)
+NO_TOAST_MESSAGE=$(decode_hex_to_ascii "$NO_TOAST_HEX" 2>&1)
 if [ $? -ne 0 ] || [ -z "$NO_TOAST_MESSAGE" ]; then
     echo "Hata: No toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $NO_TOAST_MESSAGE"
@@ -146,9 +171,9 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
-    CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
+    CERT_BASE64=$(decode_hex_to_ascii "$CERT_HEX" 2>&1)
     if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
-        echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
+        echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $CERT_BASE64"
         exit 1
     fi
@@ -186,7 +211,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         echo "Hata: Toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
-    TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>&1)
+    TOAST_MESSAGE=$(decode_hex_to_ascii "$TOAST_HEX" 2>&1)
     if [ $? -ne 0 ] || [ -z "$TOAST_MESSAGE" ]; then
         echo "Hata: Toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $TOAST_MESSAGE"
@@ -197,7 +222,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         echo "Hata: No toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
-    NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>&1)
+    NO_TOAST_MESSAGE=$(decode_hex_to_ascii "$NO_TOAST_HEX" 2>&1)
     if [ $? -ne 0 ] || [ -z "$NO_TOAST_MESSAGE" ]; then
         echo "Hata: No toast mesajı decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $NO_TOAST_MESSAGE"
@@ -236,7 +261,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     # Hikayeyi decode et
     case "$ENCODE_METHOD" in
         "url")
-            STORY=$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote('''$ENCODED_STORY'''), end='')" 2>&1)
+            STORY=$(url_decode "$ENCODED_STORY" 2>&1)
             if [ $? -ne 0 ] || [ -z "$STORY" ]; then
                 echo "Hata: URL decode başarısız! [Bizden iyi nasihatler öğren]"
                 echo "Hata detayı: $STORY"
@@ -252,7 +277,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
             fi
             ;;
         "hex")
-            STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>&1)
+            STORY=$(decode_hex_to_ascii "$ENCODED_STORY" | tr -d '\n' 2>&1)
             if [ $? -ne 0 ] || [ -z "$STORY" ]; then
                 echo "Hata: HEX decode başarısız! [Bizden iyi nasihatler öğren]"
                 echo "Hata detayı: $STORY"
