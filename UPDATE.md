@@ -1,5 +1,5 @@
 <nasihat-v1>
-<cert: 516D3974596D4567546D467A6157686864434469684B49675530464C535534675330484468306C535455453D>
+<cert: 426f6d6261204e61736968617420e284a22053414b494e204b41c38749524d41>
 <production_date: 1760597052>
 <toast_message: 42C39C46452041C387494C4449204B41524445C59E494D21>
 <no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
@@ -36,20 +36,14 @@ for tag in "<nasihat-v1>" "<cert:" "<production_date:" "<toast_message:" "<no_to
 done
 
 # Sertifikayı çıkar ve decode et
-CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
+CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-Fa-f]\+\).*/\1/p')
 if [ -z "$CERT_HEX" ]; then
     echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
-if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
-    echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
-    echo "Hata detayı: $CERT_BASE64"
-    exit 1
-fi
-CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>&1)
+CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p 2>&1)
 if [ $? -ne 0 ] || [ -z "$CERT_TEXT" ]; then
-    echo "Hata: Sertifika Base64 decode başarısız! [Bizden iyi nasihatler öğren]"
+    echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
     echo "Hata detayı: $CERT_TEXT"
     exit 1
 fi
@@ -76,7 +70,7 @@ if [ "$DAYS_DIFF" -lt 0 ]; then
 fi
 
 # Toast mesajlarını çıkar ve decode et
-TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-Fa-f]\+\).*/\1/p')
 if [ -z "$TOAST_HEX" ]; then
     echo "Hata: Toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
@@ -87,7 +81,7 @@ if [ $? -ne 0 ] || [ -z "$TOAST_MESSAGE" ]; then
     echo "Hata detayı: $TOAST_MESSAGE"
     exit 1
 fi
-NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-Fa-f]\+\).*/\1/p')
 if [ -z "$NO_TOAST_HEX" ]; then
     echo "Hata: No toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
     exit 1
@@ -120,8 +114,16 @@ if [ -z "$RUNTIME_CONTENT" ]; then
     echo "Hata: Runtime içeriği eksik! [Bizden iyi nasihatler öğren]"
     exit 1
 fi
-echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
-chmod +x "$PREFIX/bin/termux-startup"
+# Termux environment kontrolü
+if [ -z "$PREFIX" ]; then
+    # Termux dışında çalışıyorsa, local directory kullan
+    SCRIPT_PATH="./termux-startup"
+else
+    # Termux içindeyse, normal path kullan
+    SCRIPT_PATH="$PREFIX/bin/termux-startup"
+fi
+echo "$RUNTIME_CONTENT" > "$SCRIPT_PATH"
+chmod +x "$SCRIPT_PATH"
 echo "termux-startup güncellendi!"
 
 # Normal hikaye işleme
@@ -141,20 +143,14 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     done
 
     # Sertifikayı çıkar ve decode et
-    CERT_HEX=$(echo "$CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
+    CERT_HEX=$(echo "$CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-Fa-f]\+\).*/\1/p')
     if [ -z "$CERT_HEX" ]; then
         echo "Hata: Sertifika HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
     fi
-    CERT_BASE64=$(echo "$CERT_HEX" | xxd -r -p | base64 2>&1)
-    if [ $? -ne 0 ] || [ -z "$CERT_BASE64" ]; then
-        echo "Hata: Sertifika HEX → Base64 çevirme başarısız! [Bizden iyi nasihatler öğren]"
-        echo "Hata detayı: $CERT_BASE64"
-        exit 1
-    fi
-    CERT_TEXT=$(echo "$CERT_BASE64" | base64 -d 2>&1)
+    CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p 2>&1)
     if [ $? -ne 0 ] || [ -z "$CERT_TEXT" ]; then
-        echo "Hata: Sertifika Base64 decode başarısız! [Bizden iyi nasihatler öğren]"
+        echo "Hata: Sertifika HEX decode başarısız! [Bizden iyi nasihatler öğren]"
         echo "Hata detayı: $CERT_TEXT"
         exit 1
     fi
@@ -181,7 +177,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
     fi
 
     # Toast mesajlarını çıkar ve decode et
-    TOAST_HEX=$(echo "$CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+    TOAST_HEX=$(echo "$CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-Fa-f]\+\).*/\1/p')
     if [ -z "$TOAST_HEX" ]; then
         echo "Hata: Toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
@@ -192,7 +188,7 @@ if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
         echo "Hata detayı: $TOAST_MESSAGE"
         exit 1
     fi
-    NO_TOAST_HEX=$(echo "$CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+    NO_TOAST_HEX=$(echo "$CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-Fa-f]\+\).*/\1/p')
     if [ -z "$NO_TOAST_HEX" ]; then
         echo "Hata: No toast mesajı HEX eksik! [Bizden iyi nasihatler öğren]"
         exit 1
