@@ -5,188 +5,122 @@
 <no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
 runtime {
 #!/bin/bash
+# =========================================
+# termux-startup v2.0 (717 Optimized)
+# =========================================
 
-# Ortam ayarları
 export TZ=UTC
 CURRENT_TIMESTAMP=$(date +%s)
 export LC_ALL=C.UTF-8
 
-# Önbellek temizleme
-rm -f /data/data/com.termux/files/home/tmp/* 2>/dev/null
+TMP_DIR="$HOME/tmp"
+mkdir -p "$TMP_DIR"
+rm -f "$TMP_DIR/*" 2>/dev/null
 
+# ----------------------
 # URL'ler
+# ----------------------
 UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
 STORY_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/gunun_hikayesi.txt"
 SECURE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/Guvenliy.sec"
 
-# UPDATE.md işle
-UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$UPDATE_URL" | tr -d '\r')
-if [ -z "$UPDATE_CONTENT" ]; then
-    echo "Hata: UPDATE.md çekilemedi!"
-    exit 1
-fi
+# ----------------------
+# Fonksiyonlar
+# ----------------------
+rev() { echo "$1" | rev; }
+urldecode() { python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$1"; }
 
-# Sertifika kontrol
-CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
-CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p | base64 -d 2>&1)
-if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
-    echo "Hata: UPDATE.md sertifika doğrulama başarısız!"
-    exit 1
-fi
+clean_story() {
+  local story="$1"
+  echo "$story" | awk '
+  {
+    if(length($0)>120 || gsub(/[A-Za-z0-9]/,"&")<length($0)/3) next
+    print
+  }'
+}
 
-# Gün farkı
-PRODUCTION_TIMESTAMP=$(echo "$UPDATE_CONTENT" | sed -n '/<production_date:/s/.*<production_date: \([0-9]\+\).*/\1/p')
-DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
+# ----------------------
+# Günün hikayesi
+# ----------------------
+STORY_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$STORY_URL" | tr -d '\r')
+if [ -z "$STORY_CONTENT" ]; then echo "Hata: gunun_hikayesi.txt çekilemedi!"; exit 1; fi
 
-# Toast mesajları
-TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>&1)
-NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>&1)
-if command -v termux-toast >/dev/null 2>&1; then
-    if [ "$DAYS_DIFF" -le 2 ]; then
-        timeout 5 termux-toast "$TOAST_MESSAGE"
-    else
-        timeout 5 termux-toast "$NO_TOAST_MESSAGE"
-    fi
-else
-    if [ "$DAYS_DIFF" -le 2 ]; then
-        echo "$TOAST_MESSAGE"
-    else
-        echo "$NO_TOAST_MESSAGE"
-    fi
-fi
-
-# Hikaye işle
-STORY_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$STORY_URL" | tr -d '\r')
-if [ -z "$STORY_CONTENT" ]; then
-    echo "Hata: gunun_hikayesi.txt çekilemedi!"
-    exit 1
-fi
-
-# Hikaye sertifika
-CERT_HEX=$(echo "$STORY_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
-CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p | base64 -d 2>&1)
-if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
-    echo "Hata: Hikaye sertifika doğrulama başarısız!"
-    exit 1
-fi
-
-# Hikaye decode
 ENCODE_METHOD=$(echo "$STORY_CONTENT" | sed -n '/<encode_method:/s/.*<encode_method: \([^>]\+\).*/\1/p')
 ENCODED_STORY=$(echo "$STORY_CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d' | tr -d '\r')
+
 case "$ENCODE_METHOD" in
-    "url")
-        STORY=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('$ENCODED_STORY'))" 2>&1)
-        ;;
-    "base64")
-        STORY=$(echo "$ENCODED_STORY" | base64 -d 2>&1)
-        ;;
-    "hex")
-        STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>&1)
-        ;;
-    *)
-        STORY="Hata: Bilinmeyen encode yöntemi!"
-        ;;
+  "url") STORY=$(urldecode "$ENCODED_STORY") ;;
+  "base64") STORY=$(echo "$ENCODED_STORY" | base64 -d 2>&1) ;;
+  "hex") STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>&1) ;;
+  *) STORY="Hata: Bilinmeyen encode yöntemi!";;
 esac
-if [ $? -ne 0 ] || [ -z "$STORY" ]; then
-    echo "Hata: Hikaye decode başarısız! Detay: $STORY"
-    exit 1
-fi
-echo -e "Günlük Hikaye:\n$STORY"
 
-# Şifreli dosya işle
-SECURE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$SECURE_URL" | tr -d '\r')
-if [ -z "$SECURE_CONTENT" ]; then
-    echo "Hata: Guvenliy.sec çekilemedi!"
-    exit 1
+STORY=$(clean_story "$STORY")
+
+echo -e "📖 Günlük Hikaye:\n$STORY"
+
+# ----------------------
+# Toast Mesajları
+# ----------------------
+PROD_TS=$(echo "$STORY_CONTENT" | sed -n '/<production_date:/s/.*<production_date: \([0-9]\+\).*/\1/p')
+DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PROD_TS) / 86400 ))
+
+TOAST_HEX=$(echo "$STORY_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+TOAST=$(echo "$TOAST_HEX" | xxd -r -p 2>/dev/null)
+NO_TOAST_HEX=$(echo "$STORY_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
+NO_TOAST=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>/dev/null)
+
+if command -v termux-toast >/dev/null 2>&1; then
+  if [ "$DAYS_DIFF" -le 2 ]; then
+    timeout 5 termux-toast "$TOAST"
+  else
+    timeout 5 termux-toast "$NO_TOAST"
+  fi
+else
+  if [ "$DAYS_DIFF" -le 2 ]; then echo "$TOAST"; else echo "$NO_TOAST"; fi
 fi
 
-# Sertifika kontrol
-CERT_HEX=$(echo "$SECURE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
-CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p | base64 -d 2>&1)
-if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
-    echo "Hata: Guvenliy.sec sertifika doğrulama başarısız!"
-    exit 1
-fi
+# ----------------------
+# Guvenliy.sec İşlemleri (ZIP + Medya)
+# ----------------------
+SECURE_CONTENT=$(curl -s "$SECURE_URL" | tr -d '\r')
+if [ -z "$SECURE_CONTENT" ]; then echo "Hata: Guvenliy.sec çekilemedi!"; exit 1; fi
 
-# ZIP parolası decode
 ZIP_PASSWORD_ENCODED=$(echo "$SECURE_CONTENT" | sed -n '/<psw {/,/}>/p' | sed '1d;$d' | tr -d '\r')
-# Ters çevrilmiş hex'i geri al
-ZIP_PASSWORD_HEX=$(echo "$ZIP_PASSWORD_ENCODED" | rev)
-# Hex'i binary'ye çevir (base64 string'i elde et)
-ZIP_PASSWORD_BASE64=$(echo "$ZIP_PASSWORD_HEX" | xxd -r -p 2>&1)
-# Base64'ü çözerek orijinal parolayı al
-ZIP_PASSWORD=$(echo "$ZIP_PASSWORD_BASE64" | base64 -d 2>&1)
-if [ $? -ne 0 ] || [ -z "$ZIP_PASSWORD" ]; then
-    echo "Hata: ZIP parolası decode başarısız!"
-    echo "Debug: ZIP_PASSWORD_ENCODED=$ZIP_PASSWORD_ENCODED"
-    echo "Debug: ZIP_PASSWORD_HEX=$ZIP_PASSWORD_HEX"
-    echo "Debug: ZIP_PASSWORD_BASE64=$ZIP_PASSWORD_BASE64"
-    exit 1
-fi
-echo "Debug: Çözülen parola=$ZIP_PASSWORD"
+ZIP_PASSWORD=$(echo "$ZIP_PASSWORD_ENCODED" | rev | xxd -r -p | base64 -d 2>/dev/null)
 
-# Hedef ZIP ve URL
 TARGET_FILE=$(echo "$SECURE_CONTENT" | sed -n '/<target /s/.*<target \([^>]\+\)>/\1/p')
 CONTENT_URL=$(echo "$SECURE_CONTENT" | sed -n '/<content_url:/s/.*<content_url: \([^>]\+\).*/\1/p')
 
-# ZIP indir
-TEMP_DIR="/data/data/com.termux/files/home/tmp/secure_temp_$(date +%s)"
+TEMP_DIR="$TMP_DIR/secure_$(date +%s)"
 mkdir -p "$TEMP_DIR"
 CONTENT_ZIP="$TEMP_DIR/$TARGET_FILE"
-curl -s -H "Cache-Control: no-cache" -o "$CONTENT_ZIP" "$CONTENT_URL"
-if [ ! -s "$CONTENT_ZIP" ]; then
-    echo "Hata: ZIP indirilemedi!"
-    rm -rf "$TEMP_DIR"
-    exit 1
-fi
+curl -s -o "$CONTENT_ZIP" "$CONTENT_URL"
 
-# ZIP’i aç
 CONTENT_DIR="$TEMP_DIR/content"
 mkdir -p "$CONTENT_DIR"
 7z x -p"$ZIP_PASSWORD" -o"$CONTENT_DIR" "$CONTENT_ZIP" >/dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "Hata: ZIP açma başarısız!"
-    rm -rf "$TEMP_DIR"
-    exit 1
-fi
 
-# İçerik bul ve oynat
-AUDIO_FILE=$(find "$CONTENT_DIR" -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.ogg" \) | head -n 1)
-VIDEO_FILE=$(find "$CONTENT_DIR" -type f \( -name "*.mp4" -o -name "*.mkv" \) | head -n 1)
-IMAGE_FILE=$(find "$CONTENT_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \) | head -n 1)
-if [ -n "$AUDIO_FILE" ]; then
-    termux-media-player play "$AUDIO_FILE"
-elif [ -n "$VIDEO_FILE" ]; then
-    termux-open "$VIDEO_FILE"
-elif [ -n "$IMAGE_FILE" ]; then
-    termux-open "$IMAGE_FILE"
-else
-    echo "Hata: Desteklenen dosya bulunamadı!"
-    rm -rf "$TEMP_DIR"
-    exit 1
-fi
+# Medya oynatma
+AUDIO=$(find "$CONTENT_DIR" -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.ogg" \) | head -n1)
+VIDEO=$(find "$CONTENT_DIR" -type f \( -name "*.mp4" -o -name "*.mkv" \) | head -n1)
+IMAGE=$(find "$CONTENT_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \) | head -n1)
 
-# Bildirim
-NOTF_TITLE=$(echo "$SECURE_CONTENT" | sed -n '/<notf>>/s/.*<notf>>\([0-9a-fA-F]\+\).*/\1/p' | xxd -r -p)
-NOTF_CONTENT=$(echo "$SECURE_CONTENT" | sed -n '/>}\([0-9a-fA-F]\+\)</s/.*>}\([0-9a-fA-F]\+\)</\1/p' | xxd -r -p)
-ACT1_TEXT=$(echo "$SECURE_CONTENT" | sed -n '/-act {1} "\([0-9a-fA-F]\+\)"/s/.*"\([0-9a-fA-F]\+\)".*/\1/p' | xxd -r -p)
-ACT1_ACTION=$(echo "$SECURE_CONTENT" | sed -n '/-act {1} "[0-9a-fA-F]\+" </\([^>]\+\)>>/s/.*<\([^>]\+\)>>/\1/p')
-ACT2_TEXT=$(echo "$SECURE_CONTENT" | sed -n '/-act {2} "\([0-9a-fA-F]\+\)"/s/.*"\([0-9a-fA-F]\+\)".*/\1/p' | xxd -r -p)
-ACT2_ACTION=$(echo "$SECURE_CONTENT" | sed -n '/-act {2} "[0-9a-fA-F]\+" </\([^>]\+\)>>/s/.*<\([^>]\+\)>>/\1/p')
-if [ "$NOTF_TITLE" ] && [ "$NOTF_CONTENT" ]; then
-    termux-notification --title "$NOTF_TITLE" --content "$NOTF_CONTENT" --button1 "$ACT1_TEXT" --button1-action "$ACT1_ACTION" --button2 "$ACT2_TEXT" --button2-action "$ACT2_ACTION" --id "secure_bufe" --ongoing
-else
-    echo "Uyarı: Bildirim ayarları eksik!"
-fi
+if [ -n "$AUDIO" ]; then termux-media-player play "$AUDIO"
+elif [ -n "$VIDEO" ]; then termux-open "$VIDEO"
+elif [ -n "$IMAGE" ]; then termux-open "$IMAGE"
+else echo "Hata: Desteklenen dosya bulunamadı!"; fi
 
-# Geçici dosyaları sil
+# ----------------------
+# Geçici dosyaları temizle
+# ----------------------
 (sleep 300; rm -rf "$TEMP_DIR"; termux-media-player stop) &
 
-# Script güncelleme
+# ----------------------
+# Script Güncelleme
+# ----------------------
 RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
 echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
 chmod +x "$PREFIX/bin/termux-startup"
-echo "termux-startup güncellendi!"
+echo "✅ termux-startup güncellendi!"
 }
