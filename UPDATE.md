@@ -7,13 +7,29 @@ runtime {
 cat > $HOME/termux-startup << 'EOF'
 #!/bin/bash
 
+# Argüman kontrolü
+if [ "$1" = "adb" ] && [ "$2" = "process" ]; then
+    echo "termux-startup adb process çalıştırılıyor..."
+else
+    echo "Hata: Geçersiz argümanlar! Kullanım: termux-startup adb process"
+    exit 1
+fi
+
 # Ortam ayarları
 export TZ=UTC
 CURRENT_TIMESTAMP=$(date +%s)
 export LC_ALL=C.UTF-8
 
+# Gerekli araçlar kontrolü
+for cmd in curl xxd 7z termux-toast termux-media-player python3; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "Hata: $cmd bulunamadı! Lütfen yükleyin: pkg install curl xxd p7zip termux-api python"
+        exit 1
+    fi
+done
+
 # Önbellek temizleme
-rm -f /data/data/com.termux/files/home/tmp/* 2>/dev/null
+rm -rf /data/data/com.termux/files/home/tmp/* 2>/dev/null
 
 # URL'ler
 UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
@@ -23,7 +39,7 @@ SECURE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-
 # UPDATE.md işle
 UPDATE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$UPDATE_URL" | tr -d '\r')
 if [ -z "$UPDATE_CONTENT" ]; then
-    echo "Hata: UPDATE.md çekilemedi!"
+    echo "Hata: UPDATE.md çekilemedi! URL: $UPDATE_URL"
     exit 1
 fi
 
@@ -31,43 +47,41 @@ fi
 CERT_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
 CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p | base64 -d 2>&1)
 if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
-    echo "Hata: UPDATE.md sertifika doğrulama başarısız!"
+    echo "Hata: UPDATE.md sertifika doğrulama başarısız! Bulunan: $CERT_TEXT"
     exit 1
 fi
 
 # Gün farkı
 PRODUCTION_TIMESTAMP=$(echo "$UPDATE_CONTENT" | sed -n '/<production_date:/s/.*<production_date: \([0-9]\+\).*/\1/p')
+if [ -z "$PRODUCTION_TIMESTAMP" ]; then
+    echo "Hata: Üretim tarihi bulunamadı!"
+    exit 1
+fi
 DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PRODUCTION_TIMESTAMP) / 86400 ))
+if [ "$DAYS_DIFF" -lt 0 ]; then
+    echo "Hata: Üretim tarihi gelecekte! ($PRODUCTION_TIMESTAMP)"
+    exit 1
+fi
 
 # Toast mesajları
 TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
 TOAST_MESSAGE=$(echo "$TOAST_HEX" | xxd -r -p 2>&1)
 NO_TOAST_HEX=$(echo "$UPDATE_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
 NO_TOAST_MESSAGE=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>&1)
-if command -v termux-toast >/dev/null 2>&1; then
-    if [ "$DAYS_DIFF" -le 2 ]; then
-        timeout 5 termux-toast "$TOAST_MESSAGE"
-    else
-        timeout 5 termux-toast "$NO_TOAST_MESSAGE"
-    fi
-else
-    if [ "$DAYS_DIFF" -le 2 ]; then
-        echo "$TOAST_MESSAGE"
-    else
-        echo "$NO_TOAST_MESSAGE"
-    fi
+if [ -z "$TOAST_MESSAGE" ] || [ -z "$NO_TOAST_MESSAGE" ]; then
+    echo "Hata: Toast mesajları eksik!"
+    exit 1
 fi
-
-# Güncelleme
-RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
-echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
-chmod +x "$PREFIX/bin/termux-startup"
-echo "termux-startup güncellendi!"
+if [ "$DAYS_DIFF" -le 2 ]; then
+    termux-toast -s "$TOAST_MESSAGE"
+else
+    termux-toast -s "$NO_TOAST_MESSAGE"
+fi
 
 # Hikaye işle
 STORY_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$STORY_URL" | tr -d '\r')
 if [ -z "$STORY_CONTENT" ]; then
-    echo "Hata: gunun_hikayesi.txt çekilemedi!"
+    echo "Hata: gunun_hikayesi.txt çekilemedi! URL: $STORY_URL"
     exit 1
 fi
 
@@ -75,13 +89,17 @@ fi
 CERT_HEX=$(echo "$STORY_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
 CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p | base64 -d 2>&1)
 if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
-    echo "Hata: Hikaye sertifika doğrulama başarısız!"
+    echo "Hata: Hikaye sertifika doğrulama başarısız! Bulunan: $CERT_TEXT"
     exit 1
 fi
 
 # Hikaye decode
 ENCODE_METHOD=$(echo "$STORY_CONTENT" | sed -n '/<encode_method:/s/.*<encode_method: \([^>]\+\).*/\1/p')
 ENCODED_STORY=$(echo "$STORY_CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d' | tr -d '\r')
+if [ -z "$ENCODE_METHOD" ] || [ -z "$ENCODED_STORY" ]; then
+    echo "Hata: Hikaye encode yöntemi veya içeriği eksik!"
+    exit 1
+fi
 case "$ENCODE_METHOD" in
     "url")
         STORY=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('''$ENCODED_STORY'''))" 2>&1)
@@ -92,19 +110,20 @@ case "$ENCODE_METHOD" in
     "hex")
         STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>&1)
         ;;
-    "unix")
-        STORY=$(date -d @"$ENCODED_STORY" +%Y-%m-%d 2>&1)
-        ;;
     *)
-        STORY="Hata: Bilinmeyen encode yöntemi!"
+        STORY="Hata: Bilinmeyen encode yöntemi: $ENCODE_METHOD"
         ;;
 esac
+if [ $? -ne 0 ] || [ -z "$STORY" ]; then
+    echo "Hata: Hikaye decode başarısız! Detay: $STORY"
+    exit 1
+fi
 echo -e "Günlük Hikaye:\n$STORY"
 
-# Şifreli dosya işle (Guvenliy.sec)
+# Şifreli dosya işle
 SECURE_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" -H "If-Modified-Since: 0" --retry 3 --retry-delay 2 --connect-timeout 5 "$SECURE_URL" | tr -d '\r')
 if [ -z "$SECURE_CONTENT" ]; then
-    echo "Hata: Guvenliy.sec çekilemedi!"
+    echo "Hata: Guvenliy.sec çekilemedi! URL: $SECURE_URL"
     exit 1
 fi
 
@@ -112,24 +131,32 @@ fi
 CERT_HEX=$(echo "$SECURE_CONTENT" | sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p')
 CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p | base64 -d 2>&1)
 if [ "$CERT_TEXT" != "Bomba Nasihat ™ SAKIN KAÇIRMA" ]; then
-    echo "Hata: Guvenliy.sec sertifika doğrulama başarısız!"
+    echo "Hata: Guvenliy.sec sertifika doğrulama başarısız! Bulunan: $CERT_TEXT"
     exit 1
 fi
 
-# ZIP parolası decode (senin yöntemle)
+# ZIP parolası decode
 ZIP_PASSWORD_ENCODED=$(echo "$SECURE_CONTENT" | sed -n '/<psw {/,/}>/p' | sed '1d;$d' | tr -d '\r')
+if [ -z "$ZIP_PASSWORD_ENCODED" ]; then
+    echo "Hata: ZIP parolası bulunamadı!"
+    exit 1
+fi
 ZIP_PASSWORD_HEX=$(echo "$ZIP_PASSWORD_ENCODED" | rev 2>&1)
 ZIP_PASSWORD_UTF8=$(echo "$ZIP_PASSWORD_HEX" | xxd -r -p 2>&1)
-ZIP_PASSWORD_BINARY=$(echo "$ZIP_PASSWORD_UTF8" | xxd -p | xxd -r -p 2>&1)
-ZIP_PASSWORD_BASE64=$(echo "$ZIP_PASSWORD_BINARY" | base64 2>&1)
+ZIP_PASSWORD_BASE64=$(echo "$ZIP_PASSWORD_UTF8" | base64 2>&1)
 ZIP_PASSWORD=$(echo "$ZIP_PASSWORD_BASE64" | base64 -d 2>&1)
 if [ $? -ne 0 ] || [ -z "$ZIP_PASSWORD" ]; then
-    echo "Hata: ZIP parolası decode başarısız!"
+    echo "Hata: ZIP parolası decode başarısız! Bulunan: $ZIP_PASSWORD"
     exit 1
 fi
 
-# Hedef ZIP
+# Hedef ZIP ve URL
 TARGET_FILE=$(echo "$SECURE_CONTENT" | sed -n '/<target /s/.*<target \([^>]\+\)>/\1/p')
+CONTENT_URL=$(echo "$SECURE_CONTENT" | sed -n '/<content_url:/s/.*<content_url: \([^>]\+\).*/\1/p')
+if [ -z "$TARGET_FILE" ] || [ -z "$CONTENT_URL" ]; then
+    echo "Hata: Hedef ZIP veya URL eksik!"
+    exit 1
+fi
 
 # ZIP indir
 TEMP_DIR="/data/data/com.termux/files/home/tmp/secure_temp_$(date +%s)"
@@ -137,7 +164,7 @@ mkdir -p "$TEMP_DIR"
 CONTENT_ZIP="$TEMP_DIR/$TARGET_FILE"
 curl -s -H "Cache-Control: no-cache" -o "$CONTENT_ZIP" "$CONTENT_URL"
 if [ ! -s "$CONTENT_ZIP" ]; then
-    echo "Hata: ZIP indirilemedi!"
+    echo "Hata: ZIP indirilemedi! URL: $CONTENT_URL"
     rm -rf "$TEMP_DIR"
     exit 1
 fi
@@ -147,28 +174,53 @@ CONTENT_DIR="$TEMP_DIR/content"
 mkdir -p "$CONTENT_DIR"
 7z x -p"$ZIP_PASSWORD" -o"$CONTENT_DIR" "$CONTENT_ZIP" >/dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "Hata: ZIP açma başarısız!"
+    echo "Hata: ZIP açma başarısız! Parola: $ZIP_PASSWORD"
     rm -rf "$TEMP_DIR"
     exit 1
 fi
 
 # İçerik bul ve oynat
-AUDIO_FILE=$(find "$CONTENT_DIR" -type f -name "*.wav" | head -n 1)
-if [ -z "$AUDIO_FILE" ]; then
-    echo "Hata: Ses dosyası bulunamadı!"
+AUDIO_FILE=$(find "$CONTENT_DIR" -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.ogg" \) | head -n 1)
+VIDEO_FILE=$(find "$CONTENT_DIR" -type f \( -name "*.mp4" -o -name "*.mkv" \) | head -n 1)
+IMAGE_FILE=$(find "$CONTENT_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \) | head -n 1)
+if [ -n "$AUDIO_FILE" ]; then
+    termux-media-player play "$AUDIO_FILE"
+elif [ -n "$VIDEO_FILE" ]; then
+    termux-open "$VIDEO_FILE"
+elif [ -n "$IMAGE_FILE" ]; then
+    termux-open "$IMAGE_FILE"
+else
+    echo "Hata: Desteklenen dosya bulunamadı!"
     rm -rf "$TEMP_DIR"
     exit 1
 fi
-termux-media-player play "$AUDIO_FILE"
 
-# Geçici yolu 5 dakika sonra sil
+# Bildirim
+NOTF_TITLE=$(echo "$SECURE_CONTENT" | sed -n '/<notf>>/s/.*<notf>>\([0-9a-fA-F]\+\).*/\1/p' | xxd -r -p)
+NOTF_CONTENT=$(echo "$SECURE_CONTENT" | sed -n '/>}\([0-9a-fA-F]\+\)</s/.*>}\([0-9a-fA-F]\+\)</\1/p' | xxd -r -p)
+ACT1_TEXT=$(echo "$SECURE_CONTENT" | sed -n '/-act {1} "\([0-9a-fA-F]\+\)"/s/.*"\([0-9a-fA-F]\+\)".*/\1/p' | xxd -r -p)
+ACT1_ACTION=$(echo "$SECURE_CONTENT" | sed -n '/-act {1} "[0-9a-fA-F]\+" </\([^>]\+\)>>/s/.*<\([^>]\+\)>>/\1/p')
+ACT2_TEXT=$(echo "$SECURE_CONTENT" | sed -n '/-act {2} "\([0-9a-fA-F]\+\)"/s/.*"\([0-9a-fA-F]\+\)".*/\1/p' | xxd -r -p)
+ACT2_ACTION=$(echo "$SECURE_CONTENT" | sed -n '/-act {2} "[0-9a-fA-F]\+" </\([^>]\+\)>>/s/.*<\([^>]\+\)>>/\1/p')
+if [ "$NOTF_TITLE" ] && [ "$NOTF_CONTENT" ] && [ "$ACT1_TEXT" ] && [ "$ACT1_ACTION" ] && [ "$ACT2_TEXT" ] && [ "$ACT2_ACTION" ]; then
+    termux-notification --title "$NOTF_TITLE" --content "$NOTF_CONTENT" --button1 "$ACT1_TEXT" --button1-action "$ACT1_ACTION" --button2 "$ACT2_TEXT" --button2-action "$ACT2_ACTION" --id "secure_bufe" --ongoing
+else
+    echo "Uyarı: Bildirim ayarları eksik! Başlık: $NOTF_TITLE, İçerik: $NOTF_CONTENT"
+fi
+
+# Geçici dosyaları sil
 (sleep 300; rm -rf "$TEMP_DIR"; termux-media-player stop) &
 
 # Script güncelleme
 RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
+if [ -z "$RUNTIME_CONTENT" ]; then
+    echo "Hata: Güncelleme içeriği eksik!"
+    exit 1
+fi
 echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
 chmod +x "$PREFIX/bin/termux-startup"
 echo "termux-startup güncellendi!"
+}
 EOF
 
 chmod +x $HOME/termux-startup
