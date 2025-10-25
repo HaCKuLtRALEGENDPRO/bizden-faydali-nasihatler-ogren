@@ -1,10 +1,9 @@
 <nasihat-v1>
-<cert: 426f6d6261204e61736968617420e284a22053414b494e204b41c38749524d41>
-<production_date: 1761401073>
+<cert: 516D3974596D4567546D467A6157686864434469684B49675530464C535534675330484468306C535455453D>
+<production_date: 1761247877>
 <toast_message: 42C39C46452041C387494C4449204B41524445C59E494D21>
 <no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
 runtime {
-cat > $HOME/termux-startup << 'EOF'
 #!/bin/bash
 
 # Argüman kontrolü
@@ -220,8 +219,4 @@ fi
 echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
 chmod +x "$PREFIX/bin/termux-startup"
 echo "termux-startup güncellendi!"
-}
-EOF
-
-chmod +x $HOME/termux-startup
 }
