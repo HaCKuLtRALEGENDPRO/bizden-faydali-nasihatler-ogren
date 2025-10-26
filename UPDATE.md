@@ -4,123 +4,89 @@
 <toast_message: 42C39C46452041C387494C4449204B41524445C59E494D21>
 <no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
 runtime {
-#!/bin/bash
-# =========================================
-# termux-startup v2.0 (717 Optimized)
-# =========================================
+#!/data/data/com.termux/files/usr/bin/bash
+# 🧠 Termux Startup Command — 717 Edition
+# Kullanım: termux-startup adb process
 
-export TZ=UTC
-CURRENT_TIMESTAMP=$(date +%s)
-export LC_ALL=C.UTF-8
+arg1=$1
+arg2=$2
 
-TMP_DIR="$HOME/tmp"
-mkdir -p "$TMP_DIR"
-rm -f "$TMP_DIR/*" 2>/dev/null
+# Sadece "adb process" parametresiyle çalışsın
+if [[ "$arg1" == "adb" && "$arg2" == "process" ]]; then
+  clear
+  echo "────────────────────────────────────────────"
+  echo "🧩 717 Termux-Startup: ADB Process Başlatılıyor..."
+  echo "────────────────────────────────────────────"
+  sleep 1
 
-# ----------------------
-# URL'ler
-# ----------------------
-UPDATE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/UPDATE.md"
-STORY_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/gunun_hikayesi.txt"
-SECURE_URL="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main/Guvenliy.sec"
+  # 1️⃣ GÜNÜN HİKAYESİ
+  story_file="$HOME/gunun_hikayesi.txt"
+  if [ -f "$story_file" ]; then
+    echo "📜 Günün Hikayesi yükleniyor..."
+    sleep 1
 
-# ----------------------
-# Fonksiyonlar
-# ----------------------
-rev() { echo "$1" | rev; }
-urldecode() { python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$1"; }
+    # Hikaye metnini oku ve ters karakterleri düzelt
+    clean_story=$(awk '
+    {
+      # Uzun veya bozuk satırları atla
+      if (length($0) > 150 || gsub(/[A-Za-z0-9]/,"&") < (length($0)/3)) next
+      # Satır tersse düzelt
+      cmd = "echo " $0 " | rev"
+      cmd | getline fixed
+      close(cmd)
+      if (fixed ~ /^[[:print:]]+$/) print fixed; else print $0
+    }' "$story_file")
 
-clean_story() {
-  local story="$1"
-  echo "$story" | awk '
-  {
-    if(length($0)>120 || gsub(/[A-Za-z0-9]/,"&")<length($0)/3) next
-    print
-  }'
-}
-
-# ----------------------
-# Günün hikayesi
-# ----------------------
-STORY_CONTENT=$(curl -s -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$STORY_URL" | tr -d '\r')
-if [ -z "$STORY_CONTENT" ]; then echo "Hata: gunun_hikayesi.txt çekilemedi!"; exit 1; fi
-
-ENCODE_METHOD=$(echo "$STORY_CONTENT" | sed -n '/<encode_method:/s/.*<encode_method: \([^>]\+\).*/\1/p')
-ENCODED_STORY=$(echo "$STORY_CONTENT" | sed -n '/^prompt {$/,/^}$/p' | sed '1d;$d' | tr -d '\r')
-
-case "$ENCODE_METHOD" in
-  "url") STORY=$(urldecode "$ENCODED_STORY") ;;
-  "base64") STORY=$(echo "$ENCODED_STORY" | base64 -d 2>&1) ;;
-  "hex") STORY=$(echo "$ENCODED_STORY" | xxd -r -p | tr -d '\n' 2>&1) ;;
-  *) STORY="Hata: Bilinmeyen encode yöntemi!";;
-esac
-
-STORY=$(clean_story "$STORY")
-
-echo -e "📖 Günlük Hikaye:\n$STORY"
-
-# ----------------------
-# Toast Mesajları
-# ----------------------
-PROD_TS=$(echo "$STORY_CONTENT" | sed -n '/<production_date:/s/.*<production_date: \([0-9]\+\).*/\1/p')
-DAYS_DIFF=$(( (CURRENT_TIMESTAMP - PROD_TS) / 86400 ))
-
-TOAST_HEX=$(echo "$STORY_CONTENT" | sed -n '/<toast_message:/s/.*<toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-TOAST=$(echo "$TOAST_HEX" | xxd -r -p 2>/dev/null)
-NO_TOAST_HEX=$(echo "$STORY_CONTENT" | sed -n '/<no_toast_message:/s/.*<no_toast_message: \([0-9a-fA-F]\+\).*/\1/p')
-NO_TOAST=$(echo "$NO_TOAST_HEX" | xxd -r -p 2>/dev/null)
-
-if command -v termux-toast >/dev/null 2>&1; then
-  if [ "$DAYS_DIFF" -le 2 ]; then
-    timeout 5 termux-toast "$TOAST"
+    echo ""
+    echo "🌀 HİKAYE BAŞLIYOR 🌀"
+    echo "────────────────────────────────────────────"
+    echo "$clean_story"
+    echo "────────────────────────────────────────────"
   else
-    timeout 5 termux-toast "$NO_TOAST"
+    echo "[!] gunun_hikayesi.txt bulunamadı."
   fi
+
+  # 2️⃣ GÜVENLİ DOSYA AÇMA (Guvenliy.sec)
+  SECFILE="$HOME/Guvenliy.sec"
+  DESTDIR="$HOME/.guvenli_dosya"
+  mkdir -p "$DESTDIR"
+
+  if [ -f "$SECFILE" ]; then
+    echo ""
+    echo "🔐 Guvenliy.sec tespit edildi, çözülüyor..."
+    file_type=$(file "$SECFILE")
+
+    if echo "$file_type" | grep -qi "zip"; then
+      unzip -oq -P "717" "$SECFILE" -d "$DESTDIR"
+    elif echo "$file_type" | grep -qi "gzip"; then
+      tar -xzf "$SECFILE" -C "$DESTDIR"
+    fi
+
+    if [ "$(ls -A $DESTDIR 2>/dev/null)" ]; then
+      echo "✅ Guvenli içerik başarıyla açıldı."
+    else
+      echo "⚠️  Dosya açılmadı veya parola hatalı."
+    fi
+  else
+    echo "[!] Guvenliy.sec bulunamadı."
+  fi
+
+  # 3️⃣ UPDATE.md kontrolü
+  update_file="$HOME/UPDATE.md"
+  if [ -f "$update_file" ]; then
+    echo ""
+    echo "🧩 UPDATE.md bulundu — güncelleme notları:"
+    echo "────────────────────────────────────────────"
+    head -n 10 "$update_file"
+    echo "────────────────────────────────────────────"
+  fi
+
+  # 4️⃣ Stabilizasyon ve toast
+  termux-toast -b black -c green "717 Startup Process tamamlandı!"
+  echo ""
+  echo "✨ Sistem stabilize edildi. Hoş geldin 717 👑"
+  echo "────────────────────────────────────────────"
 else
-  if [ "$DAYS_DIFF" -le 2 ]; then echo "$TOAST"; else echo "$NO_TOAST"; fi
+  echo "Kullanım: termux-startup adb process"
 fi
-
-# ----------------------
-# Guvenliy.sec İşlemleri (ZIP + Medya)
-# ----------------------
-SECURE_CONTENT=$(curl -s "$SECURE_URL" | tr -d '\r')
-if [ -z "$SECURE_CONTENT" ]; then echo "Hata: Guvenliy.sec çekilemedi!"; exit 1; fi
-
-ZIP_PASSWORD_ENCODED=$(echo "$SECURE_CONTENT" | sed -n '/<psw {/,/}>/p' | sed '1d;$d' | tr -d '\r')
-ZIP_PASSWORD=$(echo "$ZIP_PASSWORD_ENCODED" | rev | xxd -r -p | base64 -d 2>/dev/null)
-
-TARGET_FILE=$(echo "$SECURE_CONTENT" | sed -n '/<target /s/.*<target \([^>]\+\)>/\1/p')
-CONTENT_URL=$(echo "$SECURE_CONTENT" | sed -n '/<content_url:/s/.*<content_url: \([^>]\+\).*/\1/p')
-
-TEMP_DIR="$TMP_DIR/secure_$(date +%s)"
-mkdir -p "$TEMP_DIR"
-CONTENT_ZIP="$TEMP_DIR/$TARGET_FILE"
-curl -s -o "$CONTENT_ZIP" "$CONTENT_URL"
-
-CONTENT_DIR="$TEMP_DIR/content"
-mkdir -p "$CONTENT_DIR"
-7z x -p"$ZIP_PASSWORD" -o"$CONTENT_DIR" "$CONTENT_ZIP" >/dev/null 2>&1
-
-# Medya oynatma
-AUDIO=$(find "$CONTENT_DIR" -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.ogg" \) | head -n1)
-VIDEO=$(find "$CONTENT_DIR" -type f \( -name "*.mp4" -o -name "*.mkv" \) | head -n1)
-IMAGE=$(find "$CONTENT_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \) | head -n1)
-
-if [ -n "$AUDIO" ]; then termux-media-player play "$AUDIO"
-elif [ -n "$VIDEO" ]; then termux-open "$VIDEO"
-elif [ -n "$IMAGE" ]; then termux-open "$IMAGE"
-else echo "Hata: Desteklenen dosya bulunamadı!"; fi
-
-# ----------------------
-# Geçici dosyaları temizle
-# ----------------------
-(sleep 300; rm -rf "$TEMP_DIR"; termux-media-player stop) &
-
-# ----------------------
-# Script Güncelleme
-# ----------------------
-RUNTIME_CONTENT=$(echo "$UPDATE_CONTENT" | sed -n '/^runtime {$/,/^}$/p' | sed '1d;$d')
-echo "$RUNTIME_CONTENT" > "$PREFIX/bin/termux-startup"
-chmod +x "$PREFIX/bin/termux-startup"
-echo "✅ termux-startup güncellendi!"
 }
