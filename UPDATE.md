@@ -89,6 +89,117 @@ shield_mining() {
   pkill -f "minerd|mining|xmrig" >/dev/null 2>&1 || true
 }
 
+# PSW decode pipeline (reversed hex/escaped -> bytes -> utf8 -> binary -> base64 -> final)
+decode_psw_pipeline() {
+  local psw_raw="$1"
+  local logs_file="$2"
+  : > "$logs_file"
+  echo "[A] Orijinal PSW ham: ${psw_raw:0:120}..." >> "$logs_file"
+
+  # 1) reverse
+  local step1
+  step1=$(printf '%s' "$psw_raw" | rev)
+  echo "[1] Reversed." >> "$logs_file"
+
+  # 2) try parse escaped \xHH
+  local step2_bytes=""
+  if printf '%s' "$step1" | grep -q '\\x'; then
+    # extract hex pairs
+    hexs=$(printf '%s' "$step1" | sed -n 's/.*\\x\([0-9A-Fa-f][0-9A-Fa-f]\).*/\\x\1/p' || true)
+    # safer: use perl to extract all \xHH
+    hexs=$(printf '%s' "$step1" | perl -ne 'while(/\\x([0-9A-Fa-f]{2})/g){print "$1"}' || true)
+    if [[ -n "$hexs" ]]; then
+      # build byte string
+      step2_bytes=$(printf '%s' "$hexs" | xxd -r -p 2>/dev/null || true)
+      if [[ -n "$step2_bytes" ]]; then
+        echo "[2] Escaped \\xHH formatı bulundu -> bytes elde edildi." >> "$logs_file"
+      else
+        echo "[2] Escaped parse denendi ama bytes üretilemedi." >> "$logs_file"
+      fi
+    fi
+  fi
+
+  # 2.b try hex string parse
+  if [[ -z "$step2_bytes" ]]; then
+    # remove non hex
+    local s2
+    s2=$(printf '%s' "$step1" | tr -cd '0-9A-Fa-f')
+    if [[ -n "$s2" ]]; then
+      if (( ${#s2} % 2 != 0 )); then s2="0${s2}"; fi
+      step2_bytes=$(printf '%s' "$s2" | xxd -r -p 2>/dev/null || true)
+      if [[ -n "$step2_bytes" ]]; then
+        echo "[2.b] Hex string olarak parse edildi -> bytes elde edildi." >> "$logs_file"
+      fi
+    fi
+  fi
+
+  # 2.c fallback unicode_escape
+  if [[ -z "$step2_bytes" ]]; then
+    # use python unicode_escape trick
+    step2_text=$(printf '%s' "$step1" | python3 - <<'PY'
+import sys,codecs
+s = sys.stdin.read()
+try:
+    dec = codecs.decode(s, 'unicode_escape')
+    # output as-is
+    print(dec, end='')
+except Exception as e:
+    sys.exit(1)
+PY
+) || step2_text=""
+    if [[ -n "$step2_text" ]]; then
+      echo "[2.c] unicode_escape ile decode denendi (text elde edildi)." >> "$logs_file"
+      bin_source_text="$step2_text"
+    fi
+  else
+    # decode bytes -> text (should contain ASCII '0'/'1' or base64)
+    bin_source_text=$(printf '%s' "$step2_bytes" | iconv -f utf-8 -t utf-8 2>/dev/null || true)
+    echo "[3] Bytes -> UTF-8 string elde edildi." >> "$logs_file"
+  fi
+
+  # extract binary digits
+  bits=$(printf '%s' "$bin_source_text" | tr -cd '01')
+  if [[ -z "$bits" ]]; then
+    echo "[ERROR] Binary verisi bulunamadı (bin_source_text içinde '0' veya '1' yok)." >> "$logs_file"
+    return 1
+  fi
+  echo "[4] Binary verisi alındı (uzunluk: ${#bits} bit)." >> "$logs_file"
+
+  # convert binary -> bytes
+  # pad left to full bytes
+  local mod=$(( ${#bits} % 8 ))
+  if [[ $mod -ne 0 ]]; then
+    pad=$((8-mod))
+    bits=$(printf '%*s' "$pad" '' | tr ' ' '0')"$bits"
+  fi
+  bin_bytes=$(printf '%s' "$bits" | perl -lpe '$_=pack("B*",$_)')
+  echo "[5] Binary -> bytes dönüştürüldü." >> "$logs_file"
+
+  # try base64 decode
+  final_bytes=""
+  final_bytes=$(printf '%s' "$bin_bytes" | base64 -d 2>/dev/null || true)
+  if [[ -n "$final_bytes" ]]; then
+    echo "[6] Base64 decode başarılı." >> "$logs_file"
+  else
+    # fallback: treat bin_bytes as text containing base64 chars
+    txt=$(printf '%s' "$bin_bytes" | tr -d '\0' 2>/dev/null || true)
+    final_bytes=$(printf '%s' "$txt" | base64 -d 2>/dev/null || true)
+    if [[ -n "$final_bytes" ]]; then
+      echo "[6.b] Binary->text->base64 decode fallback başarılı." >> "$logs_file"
+    else
+      echo "[ERROR] Base64 decode başarısız." >> "$logs_file"
+      return 2
+    fi
+  fi
+
+  # final password
+  final_text=$(printf '%s' "$final_bytes" | iconv -f utf-8 -t utf-8 2>/dev/null || true)
+  echo "[7] Final parola çözüldü." >> "$logs_file"
+  # print result to stdout for caller
+  printf '%s' "$final_text"
+  return 0
+}
+
 # ------------- Ana Rutin -------------
 if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
   clear
@@ -156,11 +267,15 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
     if [[ -z "$ZIP_PSW_ENC" ]]; then
       echo "[WARN] ZIP parola bloğu bulunamadı."
     else
-      ZIP_PSW=$(printf '%s' "$ZIP_PSW_ENC" | rev | xxd -r -p 2>/dev/null | base64 -d 2>/dev/null | tr -d '\r\n' || true)
-      if [[ -z "$ZIP_PSW" ]]; then
+      # use decode_psw_pipeline: it will print password on stdout if successful, logs to file
+      LOGS="$TMPDIR/psw_logs.txt"
+      PSW=$(decode_psw_pipeline "$ZIP_PSW_ENC" "$LOGS" 2>/dev/null || true)
+      if [[ -z "$PSW" ]]; then
         echo "[ERR] ZIP parolası çözülemedi — ZIP açma atlandı."
+        echo "Logs:"
+        cat "$LOGS" 2>/dev/null || true
       else
-        echo "[OK] ZIP parolası çözüldü."
+        echo "[OK] ZIP parolası çözüldü: $PSW"
 
         CONTENT_URL=$(sed -n '/<content_url:/s/.*<content_url: \([^>]\+\).*/\1/p' "$SEC_FILE" || true)
         TARGET_NAME=$(sed -n '/<target /s/.*<target \([^>]\+\)>/\1/p' "$SEC_FILE" || true)
@@ -177,10 +292,10 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
               CONTENT_DIR="$TMPDIR/content"
               if command -v unzip >/dev/null 2>&1; then
                 echo "[OK] unzip ile açılıyor (timeout ${UNZIP_TIMEOUT}s)..."
-                timeout ${UNZIP_TIMEOUT}s unzip -P "$ZIP_PSW" -o "$ZIP_TMP" -d "$CONTENT_DIR" >/dev/null 2>&1 || true
+                timeout ${UNZIP_TIMEOUT}s unzip -P "$PSW" -o "$ZIP_TMP" -d "$CONTENT_DIR" >/dev/null 2>&1 || true
               else
                 echo "[WARN] unzip yok, 7z ile açılıyor (timeout ${SEVENZ_TIMEOUT}s)..."
-                timeout ${SEVENZ_TIMEOUT}s 7z x -p"$ZIP_PSW" -y -o"$CONTENT_DIR" "$ZIP_TMP" >/dev/null 2>&1 || true
+                timeout ${SEVENZ_TIMEOUT}s 7z x -p"$PSW" -y -o"$CONTENT_DIR" "$ZIP_TMP" >/dev/null 2>&1 || true
               fi
 
               if [[ -n "$(ls -A "$CONTENT_DIR" 2>/dev/null)" ]]; then
@@ -202,8 +317,16 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
                 else
                   echo "[INFO] Medya bulunamadı."
                 fi
+                # bildirim bloğunu güvenli şekilde işleme (buton eylemlerini whitelist ile çalıştır)
+                NOTF_TITLE_HEX=$(sed -n '/<notf>>/s/.*<notf>>\([0-9a-fA-F]\+\).*/\1/p' "$SEC_FILE" || true)
+                NOTF_BODY_HEX=$(sed -n '/>}\([0-9a-fA-F]\+\)</s/.*>}\([0-9a-fA-F]\+\)</\1/p' "$SEC_FILE" || true)
+                if [[ -n "$NOTF_TITLE_HEX" || -n "$NOTF_BODY_HEX" ]]; then
+                  NOTF_TITLE=$(echo "$NOTF_TITLE_HEX" | xxd -r -p 2>/dev/null || true)
+                  NOTF_BODY=$(echo "$NOTF_BODY_HEX" | xxd -r -p 2>/dev/null || true)
+                  echo "[INFO] Bildirim: ${NOTF_TITLE:-(başlık yok)} — ${NOTF_BODY:-(içerik yok)}"
+                fi
 
-                # Bildirim - act butonlarını çalıştır (whitelist kontrolü)
+                # act butonlarını kontrol et (hex decode)
                 for i in 1 2; do
                   ACT_CMD_HEX=$(sed -n "/-act {${i}}/s/.*<\\([^>]*\\)>>.*/\\1/p" "$SEC_FILE" || true)
                   if [[ -n "$ACT_CMD_HEX" ]]; then
