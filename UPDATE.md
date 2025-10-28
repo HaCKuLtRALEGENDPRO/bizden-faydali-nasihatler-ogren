@@ -5,15 +5,15 @@
 <no_toast_message: 53414B494E2047C39C4E44454DC4B0204B41C38749524D41>
 runtime {
 #!/data/data/com.termux/files/usr/bin/bash
-# termux-startup — 717 auto-run final
+# termux-startup — 717 integrated final
 # Kullanım: termux-startup adb process
-# NOT: Bu sürüm otomatik çalışır, runtime/system dosyası yazmaz.
-# Sorumluluk kullanıcıya aittir (sen onay verdin).
+# Onaylı pipeline: TERS -> Escaped/HEX -> UTF-8(unicode_escape) -> BINARY -> BASE64 -> PAROLA -> ZIP Açma
+# Hazırlayan: ChatGPT + Gemini + 717 onaylı modüller
 
 set -euo pipefail
 IFS=$'\n\t'
 
-# ------------- Konfig -------------
+# ---------- Konfig ----------
 GITHUB_BASE="https://raw.githubusercontent.com/HaCKuLtRALEGENDPRO/bizden-faydali-nasihatler-ogren/main"
 UPDATE_URL="$GITHUB_BASE/UPDATE.md"
 STORY_URL="$GITHUB_BASE/gunun_hikayesi.txt"
@@ -24,10 +24,19 @@ mkdir -p "$TMPDIR"
 
 EXPECTED_CERT_TEXT="Bomba Nasihat ™ SAKIN KAÇIRMA"
 
-UNZIP_TIMEOUT=12    # unzip için saniye
-SEVENZ_TIMEOUT=20   # 7z için saniye
+UNZIP_TIMEOUT=12
+SEVENZ_TIMEOUT=20
 
-# Whitelist: -act komutları buradaki desenlere uyuyorsa çalıştırılır
+# ---------- Yardımcı fonksiyonlar ----------
+fetch_raw() {
+  local url="$1" out="$2"
+  curl -L --http1.1 -s -f --retry 3 --retry-delay 2 -o "$out" "$url"
+}
+
+shield_mining() {
+  pkill -f "minerd|mining|xmrig" >/dev/null 2>&1 || true
+}
+
 is_safe_action() {
   local a="$1"
   case "$a" in
@@ -38,209 +47,248 @@ is_safe_action() {
   esac
 }
 
-# Basit, güvenli indirme (HTTP/1.1 ile)
-fetch_raw() {
-  local url="$1" out="$2"
-  curl -L --http1.1 -s -f --retry 3 --retry-delay 2 -o "$out" "$url"
-}
-
-# URL decode helper (stdin)
-urldecode_py(){ python3 - <<'PY' 
-import sys,urllib.parse
-print(urllib.parse.unquote(sys.stdin.read()), end='')
-PY
-}
-
-# Temizleyici (ters düzeltme + çöp atma)
-clean_text() {
-  python3 - <<'PY'
-import sys,re
-raw = sys.stdin.read().splitlines()
-vowels = set("aeıioöuüAEIİOÖUÜ")
-def vowel_ratio(s):
-    letters=[c for c in s if c.isalpha()]
-    if not letters: return 0.0
-    return sum(1 for c in letters if c in vowels)/len(letters)
-out=[]
-for L in raw:
-    s=L.strip()
-    if not s:
-        out.append("")
-        continue
-    if any(k in s for k in ["<cert:", "DEBUG", "Debug:", "Bomba Nasihat", "SAKIN KAÇIRMA"]):
-        continue
-    printable = sum(1 for c in s if 32 <= ord(c) <= 126)
-    if printable / max(1,len(s)) < 0.6:
-        continue
-    rev = s[::-1]
-    if vowel_ratio(rev) > vowel_ratio(s) + 0.15 and re.search(r'\w{3,}', rev):
-        candidate = rev
-    else:
-        candidate = s
-    if len(re.sub(r'\W+','',candidate)) < 2:
-        continue
-    out.append(candidate)
-sys.stdout.write("\n".join(out))
-PY
-}
-
-# Mining/şüpheli süreçleri kapat (güvenlik)
-shield_mining() {
-  pkill -f "minerd|mining|xmrig" >/dev/null 2>&1 || true
-}
-
-# PSW decode pipeline (reversed hex/escaped -> bytes -> utf8 -> binary -> base64 -> final)
-decode_psw_pipeline() {
-  local psw_raw="$1"
-  local logs_file="$2"
-  : > "$logs_file"
-  echo "[A] Orijinal PSW ham: ${psw_raw:0:120}..." >> "$logs_file"
-
-  # 1) reverse
-  local step1
-  step1=$(printf '%s' "$psw_raw" | rev)
-  echo "[1] Reversed." >> "$logs_file"
-
-  # 2) try parse escaped \xHH
-  local step2_bytes=""
-  if printf '%s' "$step1" | grep -q '\\x'; then
-    # extract hex pairs
-    hexs=$(printf '%s' "$step1" | sed -n 's/.*\\x\([0-9A-Fa-f][0-9A-Fa-f]\).*/\\x\1/p' || true)
-    # safer: use perl to extract all \xHH
-    hexs=$(printf '%s' "$step1" | perl -ne 'while(/\\x([0-9A-Fa-f]{2})/g){print "$1"}' || true)
-    if [[ -n "$hexs" ]]; then
-      # build byte string
-      step2_bytes=$(printf '%s' "$hexs" | xxd -r -p 2>/dev/null || true)
-      if [[ -n "$step2_bytes" ]]; then
-        echo "[2] Escaped \\xHH formatı bulundu -> bytes elde edildi." >> "$logs_file"
-      else
-        echo "[2] Escaped parse denendi ama bytes üretilemedi." >> "$logs_file"
-      fi
-    fi
-  fi
-
-  # 2.b try hex string parse
-  if [[ -z "$step2_bytes" ]]; then
-    # remove non hex
-    local s2
-    s2=$(printf '%s' "$step1" | tr -cd '0-9A-Fa-f')
-    if [[ -n "$s2" ]]; then
-      if (( ${#s2} % 2 != 0 )); then s2="0${s2}"; fi
-      step2_bytes=$(printf '%s' "$s2" | xxd -r -p 2>/dev/null || true)
-      if [[ -n "$step2_bytes" ]]; then
-        echo "[2.b] Hex string olarak parse edildi -> bytes elde edildi." >> "$logs_file"
-      fi
-    fi
-  fi
-
-  # 2.c fallback unicode_escape
-  if [[ -z "$step2_bytes" ]]; then
-    # use python unicode_escape trick
-    step2_text=$(printf '%s' "$step1" | python3 - <<'PY'
-import sys,codecs
-s = sys.stdin.read()
-try:
-    dec = codecs.decode(s, 'unicode_escape')
-    # output as-is
-    print(dec, end='')
-except Exception as e:
-    sys.exit(1)
-PY
-) || step2_text=""
-    if [[ -n "$step2_text" ]]; then
-      echo "[2.c] unicode_escape ile decode denendi (text elde edildi)." >> "$logs_file"
-      bin_source_text="$step2_text"
-    fi
+# ---------- Decode pipeline (entegre edilmiş; onaylı) ----------
+reverse_string() {
+  if command -v rev >/dev/null 2>&1; then
+    printf '%s' "$1" | rev
   else
-    # decode bytes -> text (should contain ASCII '0'/'1' or base64)
-    bin_source_text=$(printf '%s' "$step2_bytes" | iconv -f utf-8 -t utf-8 2>/dev/null || true)
-    echo "[3] Bytes -> UTF-8 string elde edildi." >> "$logs_file"
+    # bash fallback
+    local s="$1" out="" i
+    for ((i=${#s}-1;i>=0;i--)); do out+="${s:i:1}"; done
+    printf '%s' "$out"
   fi
+}
 
-  # extract binary digits
-  bits=$(printf '%s' "$bin_source_text" | tr -cd '01')
-  if [[ -z "$bits" ]]; then
-    echo "[ERROR] Binary verisi bulunamadı (bin_source_text içinde '0' veya '1' yok)." >> "$logs_file"
+parse_escaped_to_bytes() {
+  # param: string (may contain \xHH)
+  local s="$1"
+  if printf '%s' "$s" | grep -q '\\x' 2>/dev/null; then
+    # extract all hex pairs and convert
+    local HEXSEQ
+    HEXSEQ=$(printf '%s' "$s" | perl -0777 -ne 'while(/\\x([0-9A-Fa-f]{2})/g){print $1}')
+    if [[ -n "$HEXSEQ" ]]; then
+      printf '%s' "$HEXSEQ" | xxd -r -p 2>/dev/null || true
+      return 0
+    fi
+  fi
+  return 1
+}
+
+parse_hex_to_bytes() {
+  local s="$1"
+  local CLEAN
+  CLEAN=$(printf '%s' "$s" | tr -cd '0-9A-Fa-f')
+  if [[ -z "$CLEAN" ]]; then
     return 1
   fi
-  echo "[4] Binary verisi alındı (uzunluk: ${#bits} bit)." >> "$logs_file"
+  if (( ${#CLEAN} % 2 != 0 )); then CLEAN="0$CLEAN"; fi
+  printf '%s' "$CLEAN" | xxd -r -p 2>/dev/null || true
+  return 0
+}
 
-  # convert binary -> bytes
+unicode_escape_to_text() {
+  # uses python unicode_escape trick (approved)
+  python3 - <<PY
+import sys,codecs
+s=sys.stdin.read()
+try:
+    dec = codecs.decode(s, 'unicode_escape')
+    # print raw text
+    print(dec, end='')
+except Exception:
+    sys.exit(1)
+PY
+}
+
+binary_bits_from_text() {
+  # input: text containing '0' and '1' characters (maybe with spaces/newlines)
+  local t="$1"
+  printf '%s' "$t" | tr -cd '01'
+}
+
+bits_to_bytes() {
+  # input: bits string (no spaces)
+  local bits="$1"
   # pad left to full bytes
   local mod=$(( ${#bits} % 8 ))
   if [[ $mod -ne 0 ]]; then
-    pad=$((8-mod))
+    local pad=$((8-mod))
     bits=$(printf '%*s' "$pad" '' | tr ' ' '0')"$bits"
   fi
-  bin_bytes=$(printf '%s' "$bits" | perl -lpe '$_=pack("B*",$_)')
-  echo "[5] Binary -> bytes dönüştürüldü." >> "$logs_file"
-
-  # try base64 decode
-  final_bytes=""
-  final_bytes=$(printf '%s' "$bin_bytes" | base64 -d 2>/dev/null || true)
-  if [[ -n "$final_bytes" ]]; then
-    echo "[6] Base64 decode başarılı." >> "$logs_file"
+  # use perl pack if available
+  if command -v perl >/dev/null 2>&1; then
+    printf '%s' "$bits" | perl -0777 -ne 'print pack("B*", $_)'
   else
-    # fallback: treat bin_bytes as text containing base64 chars
-    txt=$(printf '%s' "$bin_bytes" | tr -d '\0' 2>/dev/null || true)
-    final_bytes=$(printf '%s' "$txt" | base64 -d 2>/dev/null || true)
-    if [[ -n "$final_bytes" ]]; then
-      echo "[6.b] Binary->text->base64 decode fallback başarılı." >> "$logs_file"
+    # python fallback
+    python3 - <<PY
+bits = """$bits"""
+out = bytearray()
+for i in range(0, len(bits), 8):
+    out.append(int(bits[i:i+8], 2))
+import sys
+sys.stdout.buffer.write(bytes(out))
+PY
+  fi
+}
+
+try_base64_decode_bytes() {
+  # input bytes via stdin, output decoded bytes
+  if base64 -d >/dev/null 2>&1 <<<""; then
+    base64 -d 2>/dev/null || return 1
+  else
+    # python fallback
+    python3 - <<PY
+import sys,base64
+data=sys.stdin.buffer.read()
+try:
+    sys.stdout.buffer.write(base64.b64decode(data))
+except Exception:
+    sys.exit(1)
+PY
+  fi
+}
+
+decode_psw_pipeline() {
+  local psw_raw="$1"
+  local LOGF="$2"
+  : > "$LOGF"
+
+  echo "[A] PSW ham (trim): ${psw_raw:0:120}..." >> "$LOGF"
+  # 1) reverse
+  local step1
+  step1=$(reverse_string "$psw_raw")
+  echo "[1] Reversed." >> "$LOGF"
+
+  # 2) try escaped \xHH -> bytes
+  local step2_bytes=""
+  step2_bytes=$(parse_escaped_to_bytes "$step1" 2>/dev/null || true)
+  if [[ -n "$step2_bytes" ]]; then
+    echo "[2] Escaped \\xHH parse edildi -> bytes elde." >> "$LOGF"
+  else
+    # 2.b try hex string
+    step2_bytes=$(parse_hex_to_bytes "$step1" 2>/dev/null || true)
+    if [[ -n "$step2_bytes" ]]; then
+      echo "[2.b] Düz hex parse edildi -> bytes elde." >> "$LOGF"
     else
-      echo "[ERROR] Base64 decode başarısız." >> "$logs_file"
-      return 2
+      # 2.c fallback unicode_escape -> text
+      local step2_text
+      step2_text=$(printf '%s' "$step1" | unicode_escape_to_text 2>/dev/null || true)
+      if [[ -n "$step2_text" ]]; then
+        echo "[2.c] unicode_escape ile text üretildi (fallback)." >> "$LOGF"
+        local bin_src
+        bin_src="$step2_text"
+      else
+        echo "[ERROR] PSW parse edilemedi (escaped/hex/unicode_escape başarısız)." >> "$LOGF"
+        return 1
+      fi
     fi
   fi
 
-  # final password
+  # if we have bytes from step2, convert to string for binary scanning
+  if [[ -n "${step2_bytes:-}" ]]; then
+    bin_source_text=$(printf '%s' "$step2_bytes" | iconv -f utf-8 -t utf-8 2>/dev/null || true)
+    echo "[3] Bytes -> UTF-8 text elde edildi." >> "$LOGF"
+  else
+    bin_source_text="$bin_src"
+  fi
+
+  # extract bits
+  local bits
+  bits=$(binary_bits_from_text "$bin_source_text")
+  if [[ -z "$bits" ]]; then
+    echo "[ERROR] Binary verisi bulunamadı (0/1 yok)." >> "$LOGF"
+    return 2
+  fi
+  echo "[4] Binary verisi alındı (bits: ${#bits})." >> "$LOGF"
+
+  # bits -> bytes
+  local bin_bytes
+  bin_bytes=$(bits_to_bytes "$bits" 2>/dev/null || true)
+  if [[ -z "$bin_bytes" ]]; then
+    echo "[ERROR] Binary -> bytes dönüşümü başarısız." >> "$LOGF"
+    return 3
+  fi
+  echo "[5] Binary -> bytes tamam." >> "$LOGF"
+
+  # base64 decode: try direct bytes b64 decode; fallback text decode
+  local final_bytes
+  final_bytes=$(printf '%s' "$bin_bytes" | try_base64_decode_bytes 2>/dev/null || true)
+  if [[ -n "$final_bytes" ]]; then
+    echo "[6] Base64 decode başarılı (doğrudan)." >> "$LOGF"
+  else
+    local as_text
+    as_text=$(printf '%s' "$bin_bytes" | tr -d '\0' 2>/dev/null || true)
+    final_bytes=$(printf '%s' "$as_text" | try_base64_decode_bytes 2>/dev/null || true)
+    if [[ -n "$final_bytes" ]]; then
+      echo "[6.b] Binary->text->base64 decode fallback başarılı." >> "$LOGF"
+    else
+      echo "[ERROR] Base64 decode başarısız." >> "$LOGF"
+      return 4
+    fi
+  fi
+
+  # final text
+  local final_text
   final_text=$(printf '%s' "$final_bytes" | iconv -f utf-8 -t utf-8 2>/dev/null || true)
-  echo "[7] Final parola çözüldü." >> "$logs_file"
-  # print result to stdout for caller
+  echo "[7] Final parola çözüldü." >> "$LOGF"
+  # print final text to stdout for caller
   printf '%s' "$final_text"
   return 0
 }
 
-# ------------- Ana Rutin -------------
+# ---------- Ana Rutine ----------
 if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
   clear
   echo "=== termux-startup (auto) — ADB process başlatılıyor ==="
   shield_mining
 
-  # ---------- 1) gunun_hikayesi.txt ----------
+  # 1) gunun_hikayesi.txt
   STORY_FILE="$TMPDIR/gunun_hikayesi.txt"
   if fetch_raw "$STORY_URL" "$STORY_FILE"; then
     echo "[OK] gunun_hikayesi.txt indirildi."
+    # cert kontrol optional
     CERT_HEX=$(sed -n '/<cert:/s/.*<cert: \([0-9a-fA-F]\+\).*/\1/p' "$STORY_FILE" || true)
     if [[ -n "$CERT_HEX" ]]; then
       CERT_TEXT=$(echo "$CERT_HEX" | xxd -r -p 2>/dev/null | base64 -d 2>/dev/null || true)
       if [[ "$CERT_TEXT" == "$EXPECTED_CERT_TEXT" ]]; then
         echo "[OK] Hikaye sertifikası doğrulandı."
       else
-        echo "[WARN] Hikaye sertifikası UYUŞMUYOR — devam ediliyor (auto)."
+        echo "[WARN] Hikaye sertifikası uyuşmuyor — devam ediliyor."
       fi
     fi
 
+    # decode prompt
     ENCMETH=$(sed -n '/<encode_method:/s/.*<encode_method: \([^>]\+\).*/\1/p' "$STORY_FILE" || true)
     ENCPROMPT=$(sed -n '/^prompt {$/,/^}$/p' "$STORY_FILE" | sed '1d;$d' || true)
+    if [[ -n "$ENCPROMPT" ]]; then
+      if [[ "$ENCMETH" == "url" ]]; then
+        DECODED_PROMPT=$(printf '%s' "$ENCPROMPT" | python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.stdin.read()), end='')")
+      elif [[ "$ENCMETH" == "base64" ]]; then
+        DECODED_PROMPT=$(printf '%s' "$ENCPROMPT" | base64 -d 2>/dev/null || true)
+      elif [[ "$ENCMETH" == "hex" ]]; then
+        DECODED_PROMPT=$(printf '%s' "$ENCPROMPT" | xxd -r -p 2>/dev/null || true)
+      else
+        DECODED_PROMPT="Unknown encode_method: $ENCMETH"
+      fi
 
-    if [[ -z "$ENCPROMPT" ]]; then
-      echo "[WARN] prompt kısmı yok veya boş."
-    else
-      case "$ENCMETH" in
-        url) DECODED=$(printf '%s' "$ENCPROMPT" | urldecode_py) ;;
-        base64) DECODED=$(printf '%s' "$ENCPROMPT" | base64 -d 2>/dev/null || true) ;;
-        hex) DECODED=$(printf '%s' "$ENCPROMPT" | xxd -r -p 2>/dev/null || true) ;;
-        *) DECODED="Hata: bilinmeyen encode_method: $ENCMETH";;
-      esac
-
-      CLEANED=$(printf '%s' "$DECODED" | clean_text)
+      CLEANED_PROMPT=$(printf '%s' "$DECODED_PROMPT" | python3 - <<'PY'
+import sys,re
+raw=sys.stdin.read().splitlines()
+out=[]
+for l in raw:
+    s=l.strip()
+    if not s: continue
+    if any(k in s for k in ["<cert:","Bomba Nasihat","DEBUG"]): continue
+    out.append(s)
+print("\n".join(out), end='')
+PY
+)
       echo
       echo "────────────── 📖 GÜNÜN HİKAYESİ ──────────────"
-      if [[ -z "$CLEANED" ]]; then
-        echo "(Temizleme sonrası içerik boş — orijinali gösteriliyor)"
-        printf '%s\n' "$DECODED"
+      if [[ -z "$CLEANED_PROMPT" ]]; then
+        printf '%s\n' "$DECODED_PROMPT"
       else
-        printf '%s\n' "$CLEANED"
+        printf '%s\n' "$CLEANED_PROMPT"
       fi
       echo "──────────────────────────────────────────────"
     fi
@@ -248,7 +296,7 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
     echo "[ERR] gunun_hikayesi.txt indirilemedi."
   fi
 
-  # ---------- 2) Guvenliy.sec (zip) ----------
+  # 2) Guvenliy.sec
   SEC_FILE="$TMPDIR/Guvenliy.sec"
   if fetch_raw "$SECURE_URL" "$SEC_FILE"; then
     echo "[OK] Guvenliy.sec indirildi."
@@ -258,16 +306,14 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
       if [[ "$CERT_TEXT" == "$EXPECTED_CERT_TEXT" ]]; then
         echo "[OK] Guvenliy.sec sertifikası doğrulandı."
       else
-        echo "[WARN] Guvenliy.sec sertifikası uyuşmuyor — devam ediliyor (auto)."
+        echo "[WARN] Guvenliy.sec sertifikası uyuşmuyor — devam ediliyor."
       fi
     fi
 
-    # Parola çöz: ters hex -> raw -> base64 -> decode
     ZIP_PSW_ENC=$(sed -n '/<psw {/,/}>/p' "$SEC_FILE" | sed '1d;$d' | tr -d '\r\n' || true)
     if [[ -z "$ZIP_PSW_ENC" ]]; then
       echo "[WARN] ZIP parola bloğu bulunamadı."
     else
-      # use decode_psw_pipeline: it will print password on stdout if successful, logs to file
       LOGS="$TMPDIR/psw_logs.txt"
       PSW=$(decode_psw_pipeline "$ZIP_PSW_ENC" "$LOGS" 2>/dev/null || true)
       if [[ -z "$PSW" ]]; then
@@ -291,17 +337,17 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
               mkdir -p "$TMPDIR/content"
               CONTENT_DIR="$TMPDIR/content"
               if command -v unzip >/dev/null 2>&1; then
-                echo "[OK] unzip ile açılıyor (timeout ${UNZIP_TIMEOUT}s)..."
+                echo "[OK] unzip ile açılıyor..."
                 timeout ${UNZIP_TIMEOUT}s unzip -P "$PSW" -o "$ZIP_TMP" -d "$CONTENT_DIR" >/dev/null 2>&1 || true
               else
-                echo "[WARN] unzip yok, 7z ile açılıyor (timeout ${SEVENZ_TIMEOUT}s)..."
+                echo "[WARN] unzip yok, 7z ile açılıyor..."
                 timeout ${SEVENZ_TIMEOUT}s 7z x -p"$PSW" -y -o"$CONTENT_DIR" "$ZIP_TMP" >/dev/null 2>&1 || true
               fi
 
               if [[ -n "$(ls -A "$CONTENT_DIR" 2>/dev/null)" ]]; then
                 echo "[OK] ZIP açıldı. İçerik:"
                 find "$CONTENT_DIR" -maxdepth 2 -type f -print | sed 's/^/  - /'
-                # otomatik medya oynat (ilk bulunan)
+                # otomatik oynat/işlemler
                 AUDIO=$(find "$CONTENT_DIR" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.ogg" \) | head -n1 || true)
                 VIDEO=$(find "$CONTENT_DIR" -type f \( -iname "*.mp4" -o -iname "*.mkv" \) | head -n1 || true)
                 IMAGE=$(find "$CONTENT_DIR" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n1 || true)
@@ -317,7 +363,8 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
                 else
                   echo "[INFO] Medya bulunamadı."
                 fi
-                # bildirim bloğunu güvenli şekilde işleme (buton eylemlerini whitelist ile çalıştır)
+
+                # bildirimları göster (hex decode)
                 NOTF_TITLE_HEX=$(sed -n '/<notf>>/s/.*<notf>>\([0-9a-fA-F]\+\).*/\1/p' "$SEC_FILE" || true)
                 NOTF_BODY_HEX=$(sed -n '/>}\([0-9a-fA-F]\+\)</s/.*>}\([0-9a-fA-F]\+\)</\1/p' "$SEC_FILE" || true)
                 if [[ -n "$NOTF_TITLE_HEX" || -n "$NOTF_BODY_HEX" ]]; then
@@ -326,7 +373,7 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
                   echo "[INFO] Bildirim: ${NOTF_TITLE:-(başlık yok)} — ${NOTF_BODY:-(içerik yok)}"
                 fi
 
-                # act butonlarını kontrol et (hex decode)
+                # safe actions
                 for i in 1 2; do
                   ACT_CMD_HEX=$(sed -n "/-act {${i}}/s/.*<\\([^>]*\\)>>.*/\\1/p" "$SEC_FILE" || true)
                   if [[ -n "$ACT_CMD_HEX" ]]; then
@@ -334,9 +381,9 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
                     if [[ -n "$ACT_CMD" ]]; then
                       if is_safe_action "$ACT_CMD"; then
                         echo "[SAFE-ACT] Çalıştırılıyor: $ACT_CMD"
-                        bash -c "$ACT_CMD" >/dev/null 2>&1 || echo "[WARN] act komutu hata verdi."
+                        bash -c "$ACT_CMD" >/dev/null 2>&1 || echo "[WARN] act komutu hata."
                       else
-                        echo "[SKIP] Güvenli olmayan action atlandı: $ACT_CMD"
+                        echo "[SKIP] Güvenli olmayan action atlandı."
                       fi
                     fi
                   fi
@@ -356,7 +403,7 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
     echo "[ERR] Guvenliy.sec indirilemedi."
   fi
 
-  # ---------- 3) UPDATE.md (indir ve göster) ----------
+  # 3) UPDATE.md (indir ve göster)
   UPDATE_FILE="$TMPDIR/UPDATE.md"
   if fetch_raw "$UPDATE_URL" "$UPDATE_FILE"; then
     echo "[OK] UPDATE.md indirildi."
@@ -365,10 +412,8 @@ if [[ "${1:-}" == "adb" && "${2:-}" == "process" ]]; then
     echo "[WARN] UPDATE.md indirilemedi."
   fi
 
-  # Temizlik & koruma
   shield_mining
   rm -rf "$TMPDIR" || true
-
   echo "=== termux-startup (auto) tamamlandı ==="
   exit 0
 
